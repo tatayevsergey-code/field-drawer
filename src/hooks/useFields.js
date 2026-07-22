@@ -21,8 +21,9 @@ import { useState, useCallback } from 'react';
  * Хук управления списком полей
  * @returns {{fields: Field[], addField: Function, updateField: Function, deleteField: Function}}
  */
+
 export function useFields() {
-    const [fields, setFields] = useState(/** @type {Field[]} */ ([]));
+    const [fields, setFields] = useState([]);
 
     const addField = useCallback((coordinates, data) => {
         const newField = {
@@ -40,9 +41,17 @@ export function useFields() {
         ));
     }, []);
 
+    const updateFieldCoords = useCallback((id, newCoords, newArea) => {
+        setFields(prev => prev.map(f =>
+            f.id === id
+                ? { ...f, coordinates: newCoords, data: { ...f.data, area: newArea } }
+                : f
+        ));
+    }, []);
+
     const deleteField = useCallback((id) => {
         setFields(prev => prev.filter(f => f.id !== id));
     }, []);
 
-    return { fields, addField, updateField, deleteField };
+    return { fields, addField, updateField, updateFieldCoords, deleteField };
 }

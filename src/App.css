@@ -1,9 +1,16 @@
-* { box-sizing: border-box; margin: 0; padding: 0; }
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
 
 .app {
     display: flex;
     height: 100vh;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 .sidebar {
@@ -15,6 +22,7 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
+    flex-shrink: 0;
 }
 
 .toolbar button {
@@ -27,10 +35,24 @@
     transition: background 0.2s;
 }
 
-.btn-primary { background: #1976d2; color: white; }
-.btn-primary:hover { background: #1565c0; }
-.btn-active { background: #d32f2f; color: white; }
-.btn-secondary { background: #e0e0e0; color: #333; }
+.btn-primary {
+    background: #1976d2;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #1565c0;
+}
+
+.btn-active {
+    background: #d32f2f;
+    color: white;
+}
+
+.btn-secondary {
+    background: #e0e0e0;
+    color: #333;
+}
 
 .hint {
     background: #fff3cd;
@@ -39,6 +61,29 @@
     padding: 10px;
     font-size: 13px;
     color: #856404;
+}
+
+.hint-edit {
+    background: #e3f2fd;
+    border-color: #1976d2;
+    color: #1565c0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.btn-small {
+    padding: 4px 12px;
+    font-size: 12px;
+    background: #1976d2;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.btn-small:hover {
+    background: #1565c0;
 }
 
 .stats {
@@ -61,7 +106,6 @@
     border: 1px solid #ddd;
     border-radius: 6px;
     padding: 12px;
-    cursor: pointer;
     position: relative;
     transition: box-shadow 0.2s;
 }
@@ -70,21 +114,48 @@
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
+.field-item.active {
+    border-color: #1976d2;
+    background: #e3f2fd;
+}
+
 .field-name {
     font-weight: 600;
     font-size: 14px;
     margin-bottom: 4px;
+    cursor: pointer;
 }
 
 .field-meta {
     font-size: 12px;
     color: #666;
+    cursor: pointer;
 }
 
-.btn-delete {
+.field-actions {
     position: absolute;
     top: 8px;
     right: 8px;
+    display: flex;
+    gap: 4px;
+}
+
+.btn-edit-geo {
+    background: #e3f2fd;
+    border: none;
+    border-radius: 4px;
+    color: #1976d2;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 4px 8px;
+}
+
+.btn-edit-geo:hover {
+    background: #1976d2;
+    color: white;
+}
+
+.btn-delete {
     background: none;
     border: none;
     color: #999;
@@ -93,7 +164,9 @@
     padding: 4px;
 }
 
-.btn-delete:hover { color: #d32f2f; }
+.btn-delete:hover {
+    color: #d32f2f;
+}
 
 .map-wrapper {
     flex: 1;
@@ -102,7 +175,10 @@
 
 .modal-overlay {
     position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     background: rgba(0,0,0,0.5);
     display: flex;
     align-items: center;
@@ -155,6 +231,24 @@
     border: none;
     border-radius: 4px;
     cursor: pointer;
+}
+
+.modal-actions button[type="submit"] {
+    background: #1976d2;
+    color: white;
+}
+
+.modal-actions button[type="submit"]:hover {
+    background: #1565c0;
+}
+
+.modal-actions button[type="button"] {
+    background: #e0e0e0;
+    color: #333;
+}
+
+.modal-actions button[type="button"]:hover {
+    background: #bdbdbd;
 }
 
 .empty {
