@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { MapContainer, TileLayer, Polygon, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Polygon, useMap, LayersControl, BaseLayer } from 'react-leaflet';
 import { FieldEditor } from './components/FieldEditor';
 import { useFields } from './hooks/useFields';
 import { calculateArea } from './utils/geo';
@@ -9,13 +9,35 @@ import '@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css';
 import 'leaflet/dist/leaflet.css';
 import './App.css';
 
-// ─── Geoman-контроллер ──────────────────────────────────────────────
+// ─── Подложки ───────────────────────────────────────────────────────
+const BASEMAPS = {
+    osm: {
+        name: 'Карта',
+        url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        attribution: '&copy; OpenStreetMap contributors'
+    },
+    satellite: {
+        name: 'Спутник',
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        attribution: '&copy; Esri'
+    },
+    hybrid: {
+        name: 'Гибрид',
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        attribution: '&copy; Esri',
+        overlay: {
+            url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+            attribution: '&copy; Esri'
+        }
+    }
+};
+
+// ─── Geoman-контроллер (без изменений) ─────────────────────────────
 function GeomanController({ isDrawing, editingFieldId, fields, onCreate, getCurrentEdit }) {
     const map = useMap();
     const layerRef = useRef(null);
     const initRef = useRef(false);
 
-    // Экспонируем функцию получения текущих координат наружу
     useEffect(() => {
         getCurrentEdit.current = () => {
             if (layerRef.current && layerRef.current._fieldId === editingFieldId) {
@@ -27,7 +49,6 @@ function GeomanController({ isDrawing, editingFieldId, fields, onCreate, getCurr
         };
     }, [editingFieldId, getCurrentEdit]);
 
-    // Инициализация (один раз)
     useEffect(() => {
         if (initRef.current) return;
         initRef.current = true;
@@ -51,7 +72,6 @@ function GeomanController({ isDrawing, editingFieldId, fields, onCreate, getCurr
         });
     }, [map, onCreate]);
 
-    // Режим рисования
     useEffect(() => {
         if (isDrawing) {
             map.pm.enableDraw('Polygon', {
@@ -65,9 +85,7 @@ function GeomanController({ isDrawing, editingFieldId, fields, onCreate, getCurr
         }
     }, [isDrawing, map]);
 
-    // Синхронизация редактируемого поля
     useEffect(() => {
-        // Удаляем старый слой
         if (layerRef.current) {
             layerRef.current.pm.disable();
             map.removeLayer(layerRef.current);
@@ -94,14 +112,31 @@ function GeomanController({ isDrawing, editingFieldId, fields, onCreate, getCurr
     return null;
 }
 
+// ─── Компонент переключателя подложек (упрощённый) ─────────────────
+function BasemapSelector({ current, onChange }) {
+    return (
+        <div className="basemap-selector">
+            {Object.entries(BASEMAPS).map(([key, cfg]) => (
+                <button
+                    key={key}
+                    className={current === key ? 'active' : ''}
+                    onClick={() => onChange(key)}
+                >
+                    {cfg.name}
+                </button>
+            ))}
+        </div>
+    );
+}
+
 // ─── Главный компонент ──────────────────────────────────────────────
 export default function App() {
     const [isDrawing, setIsDrawing] = useState(false);
     const [editingFieldId, setEditingFieldId] = useState(null);
     const [modalField, setModalField] = useState(null);
+    const [basemap, setBasemap] = useState('osm');
     const { fields, addField, updateField, updateFieldCoords, deleteField } = useFields();
 
-    // Ref для доступа к текущим координатам из GeomanController
     const getCurrentEditRef = useRef(() => null);
 
     const handleCreate = useCallback((coords, area) => {
@@ -143,9 +178,7 @@ export default function App() {
         if (modalField?.id === id) setModalField(null);
     };
 
-    const handleCancelEdit = () => {
-        setEditingFieldId(null);
-    };
+    const currentBasemap = BASEMAPS[basemap];
 
     return (
         <div className="app">
@@ -161,6 +194,8 @@ export default function App() {
                         {isDrawing ? '✕ Отменить' : '✎ Нарисовать поле'}
                     </button>
                 </div>
+
+                <BasemapSelector current={basemap} onChange={setBasemap} />
 
                 {isDrawing && (
                     <div className="hint">
@@ -230,10 +265,21 @@ export default function App() {
                     zoom={13}
                     style={{ height: '100vh', width: '100%' }}
                 >
+                    {/* Подложка */}
                     <TileLayer
-                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                        attribution='&copy; OpenStreetMap contributors'
+                        key={currentBasemap.url}  // key принудительно пересоздаёт слой при смене
+                        url={currentBasemap.url}
+                        attribution={currentBasemap.attribution}
                     />
+
+                    {/* Оверлей для гибрида */}
+                    {currentBasemap.overlay && (
+                        <TileLayer
+                            key={currentBasemap.overlay.url}
+                            url={currentBasemap.overlay.url}
+                            attribution={currentBasemap.overlay.attribution}
+                        />
+                    )}
 
                     <GeomanController
                         isDrawing={isDrawing}

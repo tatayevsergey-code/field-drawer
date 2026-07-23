@@ -257,3 +257,30 @@ body {
     padding: 20px;
     font-size: 13px;
 }
+
+.basemap-selector {
+    display: flex;
+    gap: 4px;
+    margin-top: 8px;
+}
+
+.basemap-selector button {
+    flex: 1;
+    padding: 8px 4px;
+    font-size: 12px;
+    border: 1px solid #ccc;
+    background: white;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.basemap-selector button:hover {
+    background: #f0f0f0;
+}
+
+.basemap-selector button.active {
+    background: #1976d2;
+    color: white;
+    border-color: #1976d2;
+}
