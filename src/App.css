@@ -308,3 +308,45 @@ body {
 .leaflet-tooltip-right.field-label::before {
     border-left-color: rgba(46, 125, 50, 0.9);
 }
+
+.modal-small {
+    width: 320px;
+    text-align: center;
+}
+
+.confirm-message {
+    margin: 16px 0;
+    color: #555;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.btn-danger {
+    background: #d32f2f;
+    color: white;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    flex: 1;
+}
+
+.btn-danger:hover {
+    background: #b71c1c;
+}
+
+.modal-actions .btn-secondary {
+    background: #e0e0e0;
+    color: #333;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    flex: 1;
+}
+
+.modal-actions .btn-secondary:hover {
+    background: #bdbdbd;
+}

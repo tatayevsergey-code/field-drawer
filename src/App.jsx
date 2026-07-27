@@ -9,6 +9,7 @@ import '@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css';
 import 'leaflet/dist/leaflet.css';
 import './App.css';
 import { getCropName } from './utils/crops';
+import { ConfirmDialog } from './components/ConfirmDialog';
 
 // ─── Подложки ───────────────────────────────────────────────────────
 const BASEMAPS = {
@@ -137,6 +138,7 @@ export default function App() {
     const [modalField, setModalField] = useState(null);
     const [basemap, setBasemap] = useState('osm');
     const { fields, addField, updateField, updateFieldCoords, deleteField } = useFields();
+    const [confirmDelete, setConfirmDelete] = useState(null); // { id, name }
 
     const getCurrentEditRef = useRef(() => null);
 
@@ -173,10 +175,23 @@ export default function App() {
         setEditingFieldId(field.id);
     };
 
-    const handleDeleteField = (id) => {
-        deleteField(id);
-        if (editingFieldId === id) setEditingFieldId(null);
-        if (modalField?.id === id) setModalField(null);
+    // const handleDeleteField = (id) => {
+    //     deleteField(id);
+    //     if (editingFieldId === id) setEditingFieldId(null);
+    //     if (modalField?.id === id) setModalField(null);
+    // };
+
+    const handleDeleteClick = (field) => {
+        setConfirmDelete({ id: field.id, name: field.data.name || 'Без названия' });
+    };
+
+    const handleConfirmDelete = () => {
+        if (confirmDelete) {
+            deleteField(confirmDelete.id);
+            if (editingFieldId === confirmDelete.id) setEditingFieldId(null);
+            if (modalField?.id === confirmDelete.id) setModalField(null);
+            setConfirmDelete(null);
+        }
     };
 
     const currentBasemap = BASEMAPS[basemap];
@@ -250,7 +265,8 @@ export default function App() {
                                 </button>
                                 <button
                                     className="btn-delete"
-                                    onClick={() => handleDeleteField(f.id)}
+                                    // onClick={() => handleDelete(f.id)}
+                                    onClick={() => handleDeleteClick(f)}
                                     title="Удалить"
                                 >
                                     ✕
@@ -347,6 +363,16 @@ export default function App() {
                     onClose={() => setModalField(null)}
                 />
             )}
+
+            {confirmDelete && (
+                <ConfirmDialog
+                    title="Удаление поля"
+                    message={`Удалить поле «${confirmDelete.name}»?`}
+                    onConfirm={handleConfirmDelete}
+                    onCancel={() => setConfirmDelete(null)}
+                />
+            )}
+
         </div>
     );
 }
