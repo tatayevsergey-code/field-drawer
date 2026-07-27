@@ -8,6 +8,7 @@ import '@geoman-io/leaflet-geoman-free';
 import '@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css';
 import 'leaflet/dist/leaflet.css';
 import './App.css';
+import { getCropName } from './utils/crops';
 
 // ─── Подложки ───────────────────────────────────────────────────────
 const BASEMAPS = {
@@ -183,6 +184,9 @@ export default function App() {
     return (
         <div className="app">
             <aside className="sidebar">
+
+                <BasemapSelector current={basemap} onChange={setBasemap} />
+
                 <div className="toolbar">
                     <button
                         className={isDrawing ? 'btn-active' : 'btn-primary'}
@@ -194,8 +198,6 @@ export default function App() {
                         {isDrawing ? '✕ Отменить' : '✎ Нарисовать поле'}
                     </button>
                 </div>
-
-                <BasemapSelector current={basemap} onChange={setBasemap} />
 
                 {isDrawing && (
                     <div className="hint">
@@ -235,7 +237,7 @@ export default function App() {
                                 {f.data.name || 'Без названия'}
                             </div>
                             <div className="field-meta" onClick={() => handleFieldClick(f)}>
-                                {f.data.cropType && `${f.data.cropType} · `}
+                                {f.data.cropType && `${getCropName(f.data.cropType)} · `}
                                 {f.data.area} га
                             </div>
                             <div className="field-actions">

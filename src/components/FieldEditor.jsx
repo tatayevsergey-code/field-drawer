@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { CROP_NAMES } from '../utils/crops';
 
 /**
  * @param {Object} props
@@ -47,14 +48,9 @@ export function FieldEditor({ field, onSave, onClose }) {
                     Культура:
                     <select name="cropType" value={formData.cropType} onChange={handleChange}>
                         <option value="">— выберите —</option>
-                        <option value="wheat">Пшеница озимая</option>
-                        <option value="wheat_spring">Пшеница яровая</option>
-                        <option value="corn">Кукуруза</option>
-                        <option value="soy">Соя</option>
-                        <option value="sunflower">Подсолнечник</option>
-                        <option value="rapeseed">Рапс</option>
-                        <option value="barley">Ячмень</option>
-                        <option value="fallow">Пар</option>
+                        {Object.entries(CROP_NAMES).map(([code, name]) => (
+                            <option key={code} value={code}>{name}</option>
+                        ))}
                     </select>
                 </label>
 
