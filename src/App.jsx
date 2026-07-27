@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { MapContainer, TileLayer, Polygon, useMap, LayersControl, BaseLayer } from 'react-leaflet';
+import { MapContainer, TileLayer, Polygon, Tooltip, useMap, LayersControl, BaseLayer } from 'react-leaflet';
 import { FieldEditor } from './components/FieldEditor';
 import { useFields } from './hooks/useFields';
 import { calculateArea } from './utils/geo';
@@ -291,6 +291,23 @@ export default function App() {
                         getCurrentEdit={getCurrentEditRef}
                     />
 
+                    {/*{fields*/}
+                    {/*    .filter(f => f.id !== editingFieldId)*/}
+                    {/*    .map(f => (*/}
+                    {/*        <Polygon*/}
+                    {/*            key={f.id}*/}
+                    {/*            positions={f.coordinates}*/}
+                    {/*            pathOptions={{*/}
+                    {/*                color: '#2e7d32',*/}
+                    {/*                fillColor: '#4caf50',*/}
+                    {/*                fillOpacity: 0.3,*/}
+                    {/*                weight: 2*/}
+                    {/*            }}*/}
+                    {/*            eventHandlers={{*/}
+                    {/*                click: () => handleFieldClick(f)*/}
+                    {/*            }}*/}
+                    {/*        />*/}
+                    {/*    ))}*/}
                     {fields
                         .filter(f => f.id !== editingFieldId)
                         .map(f => (
@@ -306,7 +323,19 @@ export default function App() {
                                 eventHandlers={{
                                     click: () => handleFieldClick(f)
                                 }}
-                            />
+                            >
+                                <Tooltip
+                                    direction="center"
+                                    offset={[0, 0]}
+                                    opacity={1}
+                                    permanent
+                                    className="field-label"
+                                >
+                                    <span>{f.data.name || 'Без названия'}</span>
+                                    <br />
+                                    <small>{getCropName(f.data.cropType)} · {f.data.area} га</small>
+                                </Tooltip>
+                            </Polygon>
                         ))}
                 </MapContainer>
             </main>
