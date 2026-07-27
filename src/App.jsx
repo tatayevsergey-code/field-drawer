@@ -1,15 +1,16 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { MapContainer, TileLayer, Polygon, Tooltip, useMap, LayersControl, BaseLayer } from 'react-leaflet';
+import { MapContainer, TileLayer, Polygon, Polyline, CircleMarker, Tooltip, useMap, useMapEvents } from 'react-leaflet';
 import { FieldEditor } from './components/FieldEditor';
 import { useFields } from './hooks/useFields';
 import { calculateArea } from './utils/geo';
+import { getCropName } from './utils/crops';
+import { ConfirmDialog } from './components/ConfirmDialog';
 import L from 'leaflet';
 import '@geoman-io/leaflet-geoman-free';
 import '@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css';
 import 'leaflet/dist/leaflet.css';
 import './App.css';
-import { getCropName } from './utils/crops';
-import { ConfirmDialog } from './components/ConfirmDialog';
+import { splitPolygonByLine } from './utils/polygonSplit';
 
 // ─── Подложки ───────────────────────────────────────────────────────
 const BASEMAPS = {
@@ -34,7 +35,7 @@ const BASEMAPS = {
     }
 };
 
-// ─── Geoman-контроллер (без изменений) ─────────────────────────────
+// ─── Geoman-контроллер ─────────────────────────────────────────────
 function GeomanController({ isDrawing, editingFieldId, fields, onCreate, getCurrentEdit }) {
     const map = useMap();
     const layerRef = useRef(null);
@@ -114,7 +115,7 @@ function GeomanController({ isDrawing, editingFieldId, fields, onCreate, getCurr
     return null;
 }
 
-// ─── Компонент переключателя подложек (упрощённый) ─────────────────
+// ─── Компонент переключателя подложек ──────────────────────────────
 function BasemapSelector({ current, onChange }) {
     return (
         <div className="basemap-selector">
@@ -131,19 +132,39 @@ function BasemapSelector({ current, onChange }) {
     );
 }
 
+// ─── Обработчик событий карты для режима разбиения ─────────────────
+function MapEventHandler({ mode, splitField, splitPoints, onSplitClick, onMouseMove }) {
+    useMapEvents({
+        click(e) {
+            if (mode === 'split' && splitField && splitPoints.length < 2) {
+                onSplitClick(e.latlng);
+            }
+        },
+        mousemove(e) {
+            if (mode === 'split' && splitField && splitPoints.length === 1) {
+                onMouseMove(e.latlng);
+            }
+        }
+    });
+    return null;
+}
+
 // ─── Главный компонент ──────────────────────────────────────────────
 export default function App() {
-    const [isDrawing, setIsDrawing] = useState(false);
+    const [mode, setMode] = useState('view'); // 'view' | 'draw' | 'split' | 'edit'
+    const [basemap, setBasemap] = useState('osm');
     const [editingFieldId, setEditingFieldId] = useState(null);
     const [modalField, setModalField] = useState(null);
-    const [basemap, setBasemap] = useState('osm');
-    const { fields, addField, updateField, updateFieldCoords, deleteField } = useFields();
-    const [confirmDelete, setConfirmDelete] = useState(null); // { id, name }
+    const [confirmDelete, setConfirmDelete] = useState(null);
+    const [splitPoints, setSplitPoints] = useState([]);
+    const [splitField, setSplitField] = useState(null);
+    const [mousePos, setMousePos] = useState(null);
 
+    const { fields, addField, updateField, updateFieldCoords, deleteField } = useFields();
     const getCurrentEditRef = useRef(() => null);
 
     const handleCreate = useCallback((coords, area) => {
-        setIsDrawing(false);
+        setMode('view');
         setModalField({
             coordinates: coords,
             data: { area: area.toFixed(2) }
@@ -156,6 +177,7 @@ export default function App() {
             updateFieldCoords(result.fieldId, result.coords, result.area);
         }
         setEditingFieldId(null);
+        setMode('view');
     }, [updateFieldCoords]);
 
     const handleSaveField = (data) => {
@@ -168,18 +190,29 @@ export default function App() {
     };
 
     const handleFieldClick = (field) => {
+        if (mode === 'split' && !splitField) {
+            setSplitField(field);
+            return;
+        }
+        if (mode === 'split' && splitField) return;
         setModalField(field);
     };
 
     const handleEditGeometry = (field) => {
+        setMode('edit');
         setEditingFieldId(field.id);
     };
 
-    // const handleDeleteField = (id) => {
-    //     deleteField(id);
-    //     if (editingFieldId === id) setEditingFieldId(null);
-    //     if (modalField?.id === id) setModalField(null);
+    // const handleSplitStart = (field) => {
+    //     setMode('split');
+    //     setSplitField(field);
     // };
+
+    const handleSplitStart = (field) => {
+        console.log('Split start:', field.id, field.data.name);
+        setMode('split');
+        setSplitField(field);
+    };
 
     const handleDeleteClick = (field) => {
         setConfirmDelete({ id: field.id, name: field.data.name || 'Без названия' });
@@ -188,9 +221,66 @@ export default function App() {
     const handleConfirmDelete = () => {
         if (confirmDelete) {
             deleteField(confirmDelete.id);
-            if (editingFieldId === confirmDelete.id) setEditingFieldId(null);
+            if (editingFieldId === confirmDelete.id) {
+                setEditingFieldId(null);
+                setMode('view');
+            }
             if (modalField?.id === confirmDelete.id) setModalField(null);
+            if (splitField?.id === confirmDelete.id) {
+                setSplitField(null);
+                setSplitPoints([]);
+                setMode('view');
+            }
             setConfirmDelete(null);
+        }
+    };
+
+    const handleCancelModes = () => {
+        setMode('view');
+        setEditingFieldId(null);
+        setSplitField(null);
+        setSplitPoints([]);
+        setIsDrawing(false);
+    };
+
+    const handleSplitClick = (latlng) => {
+        console.log('Split click:', latlng, 'mode:', mode, 'splitField:', splitField?.id);
+        if (mode !== 'split' || !splitField) return;
+
+        const newPoints = [...splitPoints, [latlng.lat, latlng.lng]];
+        console.log('Split points:', newPoints);
+        setSplitPoints(newPoints);
+
+        if (newPoints.length === 2) {
+            console.log('Calling splitPolygonByLine with:', splitField.coordinates, newPoints[0], newPoints[1]);
+            const result = splitPolygonByLine(splitField.coordinates, newPoints[0], newPoints[1]);
+            console.log('Split result:', result);
+            if (result && result.length === 2) {
+                const [poly1, poly2] = result;
+                const area1 = calculateArea(poly1);
+                const area2 = calculateArea(poly2);
+
+                deleteField(splitField.id);
+                addField(poly1, {
+                    ...splitField.data,
+                    area: area1.toFixed(2),
+                    name: splitField.data.name + ' (1)'
+                });
+                addField(poly2, {
+                    ...splitField.data,
+                    area: area2.toFixed(2),
+                    name: splitField.data.name + ' (2)'
+                });
+            }
+            setSplitPoints([]);
+            setSplitField(null);
+            setMode('view');
+        }
+    };
+
+    const handleMapMouseMove = (latlng) => {
+        if (mode === 'split' && splitField && splitPoints.length === 1) {
+            setMousePos([latlng.lat, latlng.lng]);
         }
     };
 
@@ -199,33 +289,57 @@ export default function App() {
     return (
         <div className="app">
             <aside className="sidebar">
-
+                {/* === Переключатель подложек в самом верху === */}
                 <BasemapSelector current={basemap} onChange={setBasemap} />
 
+                {/* === Горизонтальный сплиттер === */}
+                <hr className="sidebar-divider" />
+
+                {/* === Кнопка рисования поля (единственная в тулбаре) === */}
                 <div className="toolbar">
                     <button
-                        className={isDrawing ? 'btn-active' : 'btn-primary'}
+                        className={mode === 'draw' ? 'btn-active' : 'btn-primary'}
                         onClick={() => {
-                            setIsDrawing(!isDrawing);
-                            setEditingFieldId(null);
+                            if (mode === 'draw') {
+                                setMode('view');
+                            } else {
+                                setMode('draw');
+                                setEditingFieldId(null);
+                                setSplitField(null);
+                                setSplitPoints([]);
+                            }
                         }}
                     >
-                        {isDrawing ? '✕ Отменить' : '✎ Нарисовать поле'}
+                        {mode === 'draw' ? '✕ Отменить' : '✎ Нарисовать поле'}
                     </button>
                 </div>
 
-                {isDrawing && (
+                {mode === 'draw' && (
                     <div className="hint">
                         Кликайте по карте для вершин.
                         Двойной клик — завершить.
                     </div>
                 )}
 
-                {editingFieldId && (
+                {mode === 'edit' && editingFieldId && (
                     <div className="hint hint-edit">
                         <span>Редактирование: перетаскивайте точки</span>
                         <button onClick={handleSaveEdit} className="btn-small">
                             Готово
+                        </button>
+                    </div>
+                )}
+
+                {mode === 'split' && (
+                    <div className="hint hint-split">
+                        {!splitField
+                            ? 'Выберите поле для разбиения (клик на полигоне)'
+                            : splitPoints.length === 0
+                                ? `Разбиение «${splitField.data.name}». Кликните первую точку на границе.`
+                                : 'Кликните вторую точку на противоположной границе.'
+                        }
+                        <button onClick={handleCancelModes} className="btn-small">
+                            Отмена
                         </button>
                     </div>
                 )}
@@ -246,7 +360,7 @@ export default function App() {
                     {fields.map(f => (
                         <div
                             key={f.id}
-                            className={`field-item ${editingFieldId === f.id ? 'active' : ''}`}
+                            className={`field-item ${editingFieldId === f.id ? 'active' : ''} ${splitField?.id === f.id ? 'split-active' : ''}`}
                         >
                             <div className="field-name" onClick={() => handleFieldClick(f)}>
                                 {f.data.name || 'Без названия'}
@@ -255,6 +369,7 @@ export default function App() {
                                 {f.data.cropType && `${getCropName(f.data.cropType)} · `}
                                 {f.data.area} га
                             </div>
+                            {/* === Кнопки действий: редактирование, разбиение, удаление === */}
                             <div className="field-actions">
                                 <button
                                     className="btn-edit-geo"
@@ -264,8 +379,14 @@ export default function App() {
                                     ✎
                                 </button>
                                 <button
+                                    className="btn-split-action"
+                                    onClick={() => handleSplitStart(f)}
+                                    title="Разбить поле"
+                                >
+                                    ✂
+                                </button>
+                                <button
                                     className="btn-delete"
-                                    // onClick={() => handleDelete(f.id)}
                                     onClick={() => handleDeleteClick(f)}
                                     title="Удалить"
                                 >
@@ -283,14 +404,12 @@ export default function App() {
                     zoom={13}
                     style={{ height: '100vh', width: '100%' }}
                 >
-                    {/* Подложка */}
                     <TileLayer
-                        key={currentBasemap.url}  // key принудительно пересоздаёт слой при смене
+                        key={currentBasemap.url}
                         url={currentBasemap.url}
                         attribution={currentBasemap.attribution}
                     />
 
-                    {/* Оверлей для гибрида */}
                     {currentBasemap.overlay && (
                         <TileLayer
                             key={currentBasemap.overlay.url}
@@ -299,31 +418,22 @@ export default function App() {
                         />
                     )}
 
+                    <MapEventHandler
+                        mode={mode}
+                        splitField={splitField}
+                        splitPoints={splitPoints}
+                        onSplitClick={handleSplitClick}
+                        onMouseMove={handleMapMouseMove}
+                    />
+
                     <GeomanController
-                        isDrawing={isDrawing}
+                        isDrawing={mode === 'draw'}
                         editingFieldId={editingFieldId}
                         fields={fields}
                         onCreate={handleCreate}
                         getCurrentEdit={getCurrentEditRef}
                     />
 
-                    {/*{fields*/}
-                    {/*    .filter(f => f.id !== editingFieldId)*/}
-                    {/*    .map(f => (*/}
-                    {/*        <Polygon*/}
-                    {/*            key={f.id}*/}
-                    {/*            positions={f.coordinates}*/}
-                    {/*            pathOptions={{*/}
-                    {/*                color: '#2e7d32',*/}
-                    {/*                fillColor: '#4caf50',*/}
-                    {/*                fillOpacity: 0.3,*/}
-                    {/*                weight: 2*/}
-                    {/*            }}*/}
-                    {/*            eventHandlers={{*/}
-                    {/*                click: () => handleFieldClick(f)*/}
-                    {/*            }}*/}
-                    {/*        />*/}
-                    {/*    ))}*/}
                     {fields
                         .filter(f => f.id !== editingFieldId)
                         .map(f => (
@@ -331,10 +441,10 @@ export default function App() {
                                 key={f.id}
                                 positions={f.coordinates}
                                 pathOptions={{
-                                    color: '#2e7d32',
-                                    fillColor: '#4caf50',
-                                    fillOpacity: 0.3,
-                                    weight: 2
+                                    color: splitField?.id === f.id ? '#ff9800' : '#2e7d32',
+                                    fillColor: splitField?.id === f.id ? '#ffe0b2' : '#4caf50',
+                                    fillOpacity: splitField?.id === f.id ? 0.4 : 0.3,
+                                    weight: splitField?.id === f.id ? 3 : 2
                                 }}
                                 eventHandlers={{
                                     click: () => handleFieldClick(f)
@@ -353,6 +463,22 @@ export default function App() {
                                 </Tooltip>
                             </Polygon>
                         ))}
+
+                    {mode === 'split' && splitPoints.map((p, i) => (
+                        <CircleMarker
+                            key={`split-${i}`}
+                            center={p}
+                            radius={6}
+                            pathOptions={{ color: '#d32f2f', fillColor: '#d32f2f', fillOpacity: 1 }}
+                        />
+                    ))}
+
+                    {mode === 'split' && splitPoints.length === 1 && mousePos && (
+                        <Polyline
+                            positions={[splitPoints[0], mousePos]}
+                            pathOptions={{ color: '#d32f2f', dashArray: '5,5', weight: 2 }}
+                        />
+                    )}
                 </MapContainer>
             </main>
 
@@ -372,7 +498,6 @@ export default function App() {
                     onCancel={() => setConfirmDelete(null)}
                 />
             )}
-
         </div>
     );
 }
