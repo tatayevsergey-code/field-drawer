@@ -28,7 +28,7 @@ export function useFields() {
     const addField = useCallback((coordinates, data) => {
         const newField = {
             id: Date.now(),
-            coordinates,
+            plots: [{ coordinates, area: data.area }],
             data,
             createdAt: new Date()
         };
@@ -41,11 +41,9 @@ export function useFields() {
         ));
     }, []);
 
-    const updateFieldCoords = useCallback((id, newCoords, newArea) => {
+    const updateFieldPlots = useCallback((id, newPlots) => {
         setFields(prev => prev.map(f =>
-            f.id === id
-                ? { ...f, coordinates: newCoords, data: { ...f.data, area: newArea } }
-                : f
+            f.id === id ? { ...f, plots: newPlots } : f
         ));
     }, []);
 
@@ -53,5 +51,5 @@ export function useFields() {
         setFields(prev => prev.filter(f => f.id !== id));
     }, []);
 
-    return { fields, addField, updateField, updateFieldCoords, deleteField };
+    return { fields, addField, updateField, updateFieldPlots, deleteField };
 }

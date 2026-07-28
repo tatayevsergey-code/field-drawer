@@ -363,3 +363,9 @@ body {
     padding: 20px;
     font-size: 13px;
 }
+
+.plot-count {
+    font-size: 11px;
+    color: #999;
+    font-weight: 400;
+}

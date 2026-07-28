@@ -18,3 +18,7 @@ export function calculateArea(coords) {
 
     return Math.abs(area) * R * R * Math.PI / 180 / 180 / 10000;
 }
+
+export function calculateTotalArea(plots) {
+    return plots.reduce((sum, plot) => sum + (parseFloat(plot.area) || 0), 0);
+}
