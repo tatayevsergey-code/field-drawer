@@ -263,12 +263,18 @@ export default function App() {
 
             splitField.plots.forEach(plot => {
                 const result = splitPolygonByLine(plot.coordinates, newPoints[0], newPoints[1]);
+
                 if (result && result.length >= 2) {
                     result.forEach(coords => {
-                        newPlots.push({
-                            coordinates: coords,
-                            area: calculateArea(coords).toFixed(2)
-                        });
+                        if (coords && coords.length >= 3) {
+                            const area = calculateArea(coords);
+                            if (area > 0.01) {
+                                newPlots.push({
+                                    coordinates: coords,
+                                    area: area.toFixed(2)
+                                });
+                            }
+                        }
                     });
                 } else {
                     newPlots.push(plot);

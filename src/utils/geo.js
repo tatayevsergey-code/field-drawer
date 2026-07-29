@@ -29,3 +29,48 @@ export function calculateArea(coords) {
 export function calculateTotalArea(plots) {
     return plots.reduce((sum, plot) => sum + (parseFloat(plot.area) || 0), 0);
 }
+
+/**
+ * Сдвигает точку за пределы полигона в направлении от центра
+ * Это гарантирует, что линия разреза пересечёт полигон
+ */
+export function adjustPointOutsidePolygon(point, polygon) {
+    // Находим центр масс полигона
+    let centerLat = 0, centerLng = 0;
+    for (const [lat, lng] of polygon) {
+        centerLat += lat;
+        centerLng += lng;
+    }
+    centerLat /= polygon.length;
+    centerLng /= polygon.length;
+
+    // Вектор от центра к точке
+    const dLat = point[0] - centerLat;
+    const dLng = point[1] - centerLng;
+
+    // Удлиняем вектор в 10 раз — точка далеко за пределами полигона
+    const extendedLat = centerLat + dLat * 10;
+    const extendedLng = centerLng + dLng * 10;
+
+    return [extendedLat, extendedLng];
+}
+
+/**
+ * Ray casting algorithm — точка внутри полигона?
+ */
+export function isPointInPolygon(point, polygon) {
+    const [lat, lng] = point;
+    let inside = false;
+
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const [latI, lngI] = polygon[i];
+        const [latJ, lngJ] = polygon[j];
+
+        if (((latI > lat) !== (latJ > lat)) &&
+            (lng < (lngJ - lngI) * (lat - latI) / (latJ - latI) + lngI)) {
+            inside = !inside;
+        }
+    }
+
+    return inside;
+}
