@@ -605,19 +605,18 @@ export default function App() {
         setSplitPoints(newPoints);
 
         if (newPoints.length === 2) {
-            // Разбиваем ВСЕ участки поля
             const newPlots = [];
 
             splitField.plots.forEach(plot => {
                 const result = splitPolygonByLine(plot.coordinates, newPoints[0], newPoints[1]);
-                if (result && result.length === 2) {
-                    const [coords1, coords2] = result;
-                    newPlots.push(
-                        { coordinates: coords1, area: calculateArea(coords1).toFixed(2) },
-                        { coordinates: coords2, area: calculateArea(coords2).toFixed(2) }
-                    );
+                if (result && result.length >= 2) {
+                    result.forEach(coords => {
+                        newPlots.push({
+                            coordinates: coords,
+                            area: calculateArea(coords).toFixed(2)
+                        });
+                    });
                 } else {
-                    // Если разрез не прошёл — оставляем как есть
                     newPlots.push(plot);
                 }
             });
