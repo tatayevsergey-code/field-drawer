@@ -66,6 +66,18 @@ function GeomanController({ isDrawing, editingFieldId, fields, onCreate, getCurr
             }
         });
 
+        // ─── Перевод подсказок Geoman ─────────────────────────────
+        map.pm.setLang('ru', {
+            tooltips: {
+                firstVertex: 'Кликните, чтобы поставить первую вершину',
+                continueLine: 'Кликните, чтобы продолжить рисование',
+                finishPoly: 'Кликните на первую точку, чтобы завершить',
+                placeMarker: 'Кликните, чтобы поставить точку',
+                removeLastVertex: 'Кликните на последнюю точку, чтобы удалить её',
+            }
+        }, 'en');
+        // ───────────────────────────────────────────────────────────
+
         map.on('pm:create', (e) => {
             const layer = e.layer;
             const coords = layer.getLatLngs()[0].map(p => [p.lat, p.lng]);
