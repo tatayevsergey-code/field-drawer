@@ -1,22 +1,29 @@
 /**
  * Вычисляет площадь полигона на сфероиде WGS-84
+ * Формула сферического эксцесса (Гаусса-Бонне)
  * @param {number[][]} coords - массив точек [[lat, lng], ...]
  * @returns {number} площадь в гектарах
  */
 export function calculateArea(coords) {
-    const R = 6371000;
+    if (!coords || coords.length < 3) return 0;
+
+    const R = 6371000; // радиус Земли в метрах
     let area = 0;
+    const n = coords.length;
 
-    for (let i = 0; i < coords.length; i++) {
+    for (let i = 0; i < n; i++) {
         const [lat1, lng1] = coords[i];
-        const [lat2, lng2] = coords[(i + 1) % coords.length];
+        const [lat2, lng2] = coords[(i + 1) % n];
 
-        const x = (lng2 - lng1) * Math.cos((lat1 + lat2) / 2 * Math.PI / 180);
-        const y = (lat2 - lat1);
-        area += x * y;
+        const lat1Rad = lat1 * Math.PI / 180;
+        const lat2Rad = lat2 * Math.PI / 180;
+        const dLng = (lng2 - lng1) * Math.PI / 180;
+
+        area += dLng * (2 + Math.sin(lat1Rad) + Math.sin(lat2Rad));
     }
 
-    return Math.abs(area) * R * R * Math.PI / 180 / 180 / 10000;
+    area = Math.abs(area) * R * R / 2;
+    return area / 10000; // в гектарах
 }
 
 export function calculateTotalArea(plots) {
