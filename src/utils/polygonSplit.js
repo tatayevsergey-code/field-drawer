@@ -73,19 +73,12 @@ function buildSubPolygon(polygon, point1, edge1, point2, edge2) {
  * @param {number[][]} polygonCoords — массив вершин [lat, lng]
  * @param {number[]} pointA — первая точка [lat, lng]
  * @param {number[]} pointB — вторая точка [lat, lng]
- * @returns {number[][][]} массив полигонов-результата
+ * @returns {number[][][]|null} массив полигонов-результата или null
  */
 export function splitPolygonByLine(polygonCoords, pointA, pointB) {
-    // Удлиняем линию в 100 раз, чтобы гарантированно пересекла полигон
-    const [lat1, lng1] = pointA;
-    const [lat2, lng2] = pointB;
-    const dLat = lat2 - lat1;
-    const dLng = lng2 - lng1;
-
-    const extendedA = [lat1 - dLat * 100, lng1 - dLng * 100];
-    const extendedB = [lat2 + dLat * 100, lng2 + dLng * 100];
-
-    const intersections = findAllIntersections(extendedA, extendedB, polygonCoords);
+    // Используем точки клика напрямую, без удлинения.
+    // Если линия не пересекает полигон минимум 2 раза — разрез не производится.
+    const intersections = findAllIntersections(pointA, pointB, polygonCoords);
 
     if (intersections.length < 2) {
         return null;
