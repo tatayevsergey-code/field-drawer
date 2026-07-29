@@ -97,17 +97,20 @@ function GeomanController({ isDrawing, editingFieldId, fields, onCreate, getCurr
 
         if (editingFieldId) {
             const field = fields.find(f => f.id === editingFieldId);
-            if (field) {
-                const layer = L.polygon(field.coordinates, {
-                    color: '#1976d2',
-                    fillColor: '#64b5f6',
-                    fillOpacity: 0.2,
-                    weight: 2
-                }).addTo(map);
+            if (field && field.plots && field.plots.length > 0) {
+                const plot = field.plots[0];
+                if (plot && plot.coordinates && plot.coordinates.length >= 3) {
+                    const layer = L.polygon(plot.coordinates, {
+                        color: '#1976d2',
+                        fillColor: '#64b5f6',
+                        fillOpacity: 0.2,
+                        weight: 2
+                    }).addTo(map);
 
-                layer._fieldId = field.id;
-                layer.pm.enable({ allowSelfIntersection: false });
-                layerRef.current = layer;
+                    layer._fieldId = field.id;
+                    layer.pm.enable({ allowSelfIntersection: false });
+                    layerRef.current = layer;
+                }
             }
         }
     }, [editingFieldId, fields, map]);
