@@ -1,16 +1,17 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { MapContainer, TileLayer, Polygon, Polyline, CircleMarker, Tooltip, useMap, useMapEvents } from 'react-leaflet';
 import { FieldEditor } from './components/FieldEditor';
-import { useFields } from './hooks/useFields';
-import { calculateArea } from './utils/geo';
-import { getCropName } from './utils/crops';
+import { ProjectManager } from './components/ProjectManager';
 import { ConfirmDialog } from './components/ConfirmDialog';
+import { useProjects } from './hooks/useProjects';
+import { calculateArea, calculateTotalArea } from './utils/geo';
+import { getCropName } from './utils/crops';
+import { splitPolygonByLine } from './utils/polygonSplit';
 import L from 'leaflet';
 import '@geoman-io/leaflet-geoman-free';
 import '@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css';
 import 'leaflet/dist/leaflet.css';
 import './App.css';
-import { splitPolygonByLine } from './utils/polygonSplit';
 
 // ─── Подложки ───────────────────────────────────────────────────────
 const BASEMAPS = {
@@ -162,8 +163,24 @@ export default function App() {
     const [splitField, setSplitField] = useState(null);
     const [mousePos, setMousePos] = useState(null);
 
-    const { fields, addField, updateField, updateFieldPlots, deleteField } = useFields();
+    const {
+        projects,
+        activeProjectId,
+        activeProject,
+        setActiveProjectId,
+        createProject,
+        deleteProject,
+        renameProject,
+        addField,
+        updateField,
+        updateFieldPlots,
+        deleteField
+    } = useProjects();
+
     const getCurrentEditRef = useRef(() => null);
+
+    // Поля активного проекта
+    const fields = activeProject?.fields || [];
 
     const handleCreate = useCallback((coords, area) => {
         setMode('view');
@@ -176,11 +193,10 @@ export default function App() {
     const handleSaveEdit = useCallback(() => {
         const result = getCurrentEditRef.current();
         if (result) {
-            // Обновляем координаты участка
             const field = fields.find(f => f.id === result.fieldId);
             if (field) {
                 const newPlots = field.plots.map((plot, idx) => {
-                    if (idx === 0) { // редактируем первый участок (упрощение)
+                    if (idx === 0) {
                         return { ...plot, coordinates: result.coords, area: result.area };
                     }
                     return plot;
@@ -212,7 +228,7 @@ export default function App() {
 
     const handleEditGeometry = (field) => {
         if (field.plots.length > 1) {
-            alert('Редактирование геометрии доступно только для полей с одним участком. Удалите разбиение или создайте новое поле.');
+            alert('Редактирование геометрии доступно только для полей с одним участком.');
             return;
         }
         setMode('edit');
@@ -263,7 +279,6 @@ export default function App() {
 
             splitField.plots.forEach(plot => {
                 const result = splitPolygonByLine(plot.coordinates, newPoints[0], newPoints[1]);
-
                 if (result && result.length >= 2) {
                     result.forEach(coords => {
                         if (coords && coords.length >= 3) {
@@ -296,7 +311,6 @@ export default function App() {
 
     const currentBasemap = BASEMAPS[basemap];
 
-    // Суммарная площадь поля
     const getTotalArea = (field) => {
         return field.plots.reduce((sum, p) => sum + (parseFloat(p.area) || 0), 0);
     };
@@ -304,111 +318,134 @@ export default function App() {
     return (
         <div className="app">
             <aside className="sidebar">
+
                 <BasemapSelector current={basemap} onChange={setBasemap} />
                 <hr className="sidebar-divider" />
 
-                <div className="toolbar">
-                    <button
-                        className={mode === 'draw' ? 'btn-active' : 'btn-primary'}
-                        onClick={() => {
-                            if (mode === 'draw') {
-                                setMode('view');
-                            } else {
-                                setMode('draw');
-                                setEditingFieldId(null);
-                                setSplitField(null);
-                                setSplitPoints([]);
-                            }
-                        }}
-                    >
-                        {mode === 'draw' ? '✕ Отменить' : '✎ Нарисовать поле'}
-                    </button>
-                </div>
+                <ProjectManager
+                    projects={projects}
+                    activeProjectId={activeProjectId}
+                    onSelect={(id) => {
+                        setActiveProjectId(id);
+                    }}
+                    onCreate={createProject}
+                    onDelete={deleteProject}
+                    onRename={renameProject}
+                />
 
-                {mode === 'draw' && (
-                    <div className="hint">
-                        Кликайте по карте для вершин.
-                        Двойной клик — завершить.
-                    </div>
-                )}
-
-                {mode === 'edit' && editingFieldId && (
-                    <div className="hint hint-edit">
-                        <span>Редактирование: перетаскивайте точки</span>
-                        <button onClick={handleSaveEdit} className="btn-small">
-                            Готово
-                        </button>
-                    </div>
-                )}
-
-                {mode === 'split' && (
-                    <div className="hint hint-split">
-                        {!splitField
-                            ? 'Выберите поле для разбиения (клик на полигоне)'
-                            : splitPoints.length === 0
-                                ? `Разбиение «${splitField.data.name}». Кликните первую точку на границе.`
-                                : 'Кликните вторую точку на противоположной границе.'
-                        }
-                        <button onClick={handleCancelModes} className="btn-small">
-                            Отмена
-                        </button>
-                    </div>
-                )}
-
-                <div className="stats">
-                    <span>Полей: {fields.length}</span>
-                    <span>
-                        Общая площадь: {' '}
-                        {fields.reduce((s, f) => s + getTotalArea(f), 0).toFixed(2)} га
-                    </span>
-                </div>
-
-                <h3>Список полей</h3>
-                <div className="field-list">
-                    {fields.length === 0 && (
-                        <div className="empty">Нет созданных полей</div>
-                    )}
-                    {fields.map(f => (
-                        <div
-                            key={f.id}
-                            className={`field-item ${editingFieldId === f.id ? 'active' : ''} ${splitField?.id === f.id ? 'split-active' : ''}`}
-                        >
-                            <div className="field-name" onClick={() => handleFieldClick(f)}>
-                                {f.data.name || 'Без названия'}
-                                {f.plots.length > 1 && <span className="plot-count"> ({f.plots.length} уч.)</span>}
-                            </div>
-                            <div className="field-meta" onClick={() => handleFieldClick(f)}>
-                                {f.data.cropType && `${getCropName(f.data.cropType)} · `}
-                                {getTotalArea(f).toFixed(2)} га
-                            </div>
-                            <div className="field-actions">
-                                {f.plots.length === 1 && (
-                                    <button
-                                        className="btn-edit-geo"
-                                        onClick={() => handleEditGeometry(f)}
-                                        title="Редактировать геометрию"
-                                    >
-                                        ✎
-                                    </button>
-                                )}
-                                <button
-                                    className="btn-split-action"
-                                    onClick={() => handleSplitStart(f)}
-                                    title="Разбить на участки"
-                                >
-                                    ✂
-                                </button>
-                                <button
-                                    className="btn-delete"
-                                    onClick={() => handleDeleteClick(f)}
-                                    title="Удалить"
-                                >
-                                    ✕
-                                </button>
-                            </div>
+                {activeProject && (
+                    <>
+                        <hr className="sidebar-divider" />
+                        <div className="toolbar">
+                            <button
+                                className={mode === 'draw' ? 'btn-active' : 'btn-primary'}
+                                onClick={() => {
+                                    if (mode === 'draw') {
+                                        setMode('view');
+                                    } else {
+                                        setMode('draw');
+                                        setEditingFieldId(null);
+                                        setSplitField(null);
+                                        setSplitPoints([]);
+                                    }
+                                }}
+                            >
+                                {mode === 'draw' ? '✕ Отменить' : '✎ Нарисовать поле'}
+                            </button>
                         </div>
-                    ))}
-                </div>
+
+                        {mode === 'draw' && (
+                            <div className="hint">
+                                Кликайте по карте для вершин.
+                                Двойной клик — завершить.
+                            </div>
+                        )}
+
+                        {mode === 'edit' && editingFieldId && (
+                            <div className="hint hint-edit">
+                                <span>Редактирование: перетаскивайте точки</span>
+                                <button onClick={handleSaveEdit} className="btn-small">
+                                    Готово
+                                </button>
+                            </div>
+                        )}
+
+                        {mode === 'split' && (
+                            <div className="hint hint-split">
+                                {!splitField
+                                    ? 'Выберите поле для разбиения (клик на полигоне)'
+                                    : splitPoints.length === 0
+                                        ? `Разбиение «${splitField.data.name}». Кликните первую точку на границе.`
+                                        : 'Кликните вторую точку на противоположной границе.'
+                                }
+                                <button onClick={handleCancelModes} className="btn-small">
+                                    Отмена
+                                </button>
+                            </div>
+                        )}
+
+                        <div className="stats">
+                            <span>Полей: {fields.length}</span>
+                            <span>
+                                Общая площадь: {' '}
+                                {fields.reduce((s, f) => s + getTotalArea(f), 0).toFixed(2)} га
+                            </span>
+                        </div>
+
+                        <h3>Список полей</h3>
+                        <div className="field-list">
+                            {fields.length === 0 && (
+                                <div className="empty">Нет созданных полей</div>
+                            )}
+                            {fields.map(f => (
+                                <div
+                                    key={f.id}
+                                    className={`field-item ${editingFieldId === f.id ? 'active' : ''} ${splitField?.id === f.id ? 'split-active' : ''}`}
+                                >
+                                    <div className="field-name" onClick={() => handleFieldClick(f)}>
+                                        {f.data.name || 'Без названия'}
+                                        {f.plots.length > 1 && <span className="plot-count"> ({f.plots.length} уч.)</span>}
+                                    </div>
+                                    <div className="field-meta" onClick={() => handleFieldClick(f)}>
+                                        {f.data.cropType && `${getCropName(f.data.cropType)} · `}
+                                        {getTotalArea(f).toFixed(2)} га
+                                    </div>
+                                    <div className="field-actions">
+                                        {f.plots.length === 1 && (
+                                            <button
+                                                className="btn-edit-geo"
+                                                onClick={() => handleEditGeometry(f)}
+                                                title="Редактировать геометрию"
+                                            >
+                                                ✎
+                                            </button>
+                                        )}
+                                        <button
+                                            className="btn-split-action"
+                                            onClick={() => handleSplitStart(f)}
+                                            title="Разбить на участки"
+                                        >
+                                            ✂
+                                        </button>
+                                        <button
+                                            className="btn-delete"
+                                            onClick={() => handleDeleteClick(f)}
+                                            title="Удалить"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </>
+                )}
+
+                {!activeProject && (
+                    <div className="hint">
+                        Создайте проект или выберите существующий
+                    </div>
+                )}
             </aside>
 
             <main className="map-wrapper">
@@ -447,7 +484,6 @@ export default function App() {
                         getCurrentEdit={getCurrentEditRef}
                     />
 
-                    {/* Рендерим ВСЕ участки поля — подпись только у первого */}
                     {fields.map(f => (
                         f.plots.map((plot, plotIdx) => (
                             <Polygon
@@ -463,7 +499,6 @@ export default function App() {
                                     click: () => handleFieldClick(f)
                                 }}
                             >
-                                {/* Подпись только у первого участка */}
                                 {plotIdx === 0 && (
                                     <Tooltip
                                         direction="center"
@@ -480,7 +515,6 @@ export default function App() {
                             </Polygon>
                         ))
                     ))}
-
 
                     {mode === 'split' && splitPoints.map((p, i) => (
                         <CircleMarker
