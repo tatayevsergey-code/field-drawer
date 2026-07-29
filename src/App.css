@@ -517,3 +517,7 @@ body {
     background: #e0e0e0;
     color: #333;
 }
+
+/*.leaflet-control-attribution {*/
+/*    display: none;*/
+/*}*/

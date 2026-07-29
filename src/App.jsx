@@ -458,12 +458,18 @@ export default function App() {
                         Создайте проект или выберите существующий
                     </div>
                 )}
+
+                <div style={{fontSize: '11px', color: '#999', marginTop: 'auto'}}>
+                    © OpenStreetMap contributors · © Esri
+                </div>
+
             </aside>
 
             <main className="map-wrapper">
                 <MapContainer
                     center={[55.7558, 37.6173]}
                     zoom={13}
+                    attributionControl={false}
                     style={{ height: '100vh', width: '100%' }}
                 >
                     <TileLayer
