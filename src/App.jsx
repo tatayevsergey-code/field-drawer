@@ -211,6 +211,10 @@ export default function App() {
     };
 
     const handleEditGeometry = (field) => {
+        if (field.plots.length > 1) {
+            alert('Редактирование геометрии доступно только для полей с одним участком. Удалите разбиение или создайте новое поле.');
+            return;
+        }
         setMode('edit');
         setEditingFieldId(field.id);
     };
@@ -372,13 +376,15 @@ export default function App() {
                                 {getTotalArea(f).toFixed(2)} га
                             </div>
                             <div className="field-actions">
-                                <button
-                                    className="btn-edit-geo"
-                                    onClick={() => handleEditGeometry(f)}
-                                    title="Редактировать геометрию"
-                                >
-                                    ✎
-                                </button>
+                                {f.plots.length === 1 && (
+                                    <button
+                                        className="btn-edit-geo"
+                                        onClick={() => handleEditGeometry(f)}
+                                        title="Редактировать геометрию"
+                                    >
+                                        ✎
+                                    </button>
+                                )}
                                 <button
                                     className="btn-split-action"
                                     onClick={() => handleSplitStart(f)}
