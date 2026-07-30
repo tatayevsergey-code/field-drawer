@@ -165,6 +165,38 @@ function MapEventHandler({ mode, splitField, splitPoints, onSplitClick, onMouseM
     return null;
 }
 
+function MapFocusController({ focusTrigger }) {
+    const map = useMap();
+
+    useEffect(() => {
+        if (!focusTrigger) return;
+
+        const { field } = focusTrigger;
+        let bounds = null;
+
+        field.plots.forEach(plot => {
+            if (plot.coordinates && plot.coordinates.length > 0) {
+                plot.coordinates.forEach(([lat, lng]) => {
+                    const latLng = L.latLng(lat, lng);
+                    if (!bounds) bounds = L.latLngBounds(latLng, latLng);
+                    else bounds.extend(latLng);
+                });
+            }
+        });
+
+        // Центрируем только если поле полностью вне видимой области
+        if (bounds && !map.getBounds().intersects(bounds)) {
+            map.flyToBounds(bounds, {
+                padding: [50, 50],
+                maxZoom: 16,
+                duration: 0.6
+            });
+        }
+    }, [focusTrigger, map]);
+
+    return null;
+}
+
 export default function App() {
     const [mode, setMode] = useState('view');
     const [basemap, setBasemap] = useState('osm');
@@ -174,6 +206,7 @@ export default function App() {
     const [splitPoints, setSplitPoints] = useState([]);
     const [splitField, setSplitField] = useState(null);
     const [mousePos, setMousePos] = useState(null);
+    const [focusTrigger, setFocusTrigger] = useState(null);
 
     const {
         projects,
@@ -236,6 +269,7 @@ export default function App() {
         }
         if (mode === 'split' && splitField) return;
         setModalField(field);
+        setFocusTrigger({ field, ts: Date.now() }); // ← триггерим центрирование
     };
 
     const handleEditGeometry = (field) => {
@@ -485,6 +519,8 @@ export default function App() {
                             attribution={currentBasemap.overlay.attribution}
                         />
                     )}
+
+                    <MapFocusController focusTrigger={focusTrigger} />
 
                     <MapEventHandler
                         mode={mode}
