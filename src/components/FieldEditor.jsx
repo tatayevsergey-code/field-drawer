@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { CROP_NAMES } from '../utils/crops';
+import { SOIL_TYPES } from '../utils/soils';
 
 /**
  * @param {Object} props
@@ -68,12 +69,12 @@ export function FieldEditor({ field, onSave, onClose }) {
 
                 <label>
                     Тип почвы:
-                    <input
-                        name="soilType"
-                        value={formData.soilType}
-                        onChange={handleChange}
-                        placeholder="Чернозём, суглинок..."
-                    />
+                    <select name="soilType" value={formData.soilType} onChange={handleChange}>
+                        <option value="">— выберите —</option>
+                        {Object.entries(SOIL_TYPES).map(([code, name]) => (
+                            <option key={code} value={code}>{name}</option>
+                        ))}
+                    </select>
                 </label>
 
                 <label>
