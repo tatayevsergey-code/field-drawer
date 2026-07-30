@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { CROP_NAMES } from '../utils/crops';
-import { SOIL_TYPES } from '../utils/soils';
-
+import { SOIL_TYPES, SOIL_GROUPS, getSoilsByGroup } from '../utils/soils';
 /**
  * @param {Object} props
  * @param {{id?: number, coordinates: number[][], data?: FieldData}} props.field
@@ -65,12 +64,32 @@ export function FieldEditor({ field, onSave, onClose, onOpenAgrochemistry }) {
                     />
                 </label>
 
+                {/*<label>*/}
+                {/*    Тип почвы:*/}
+                {/*    <select name="soilType" value={formData.soilType} onChange={handleChange}>*/}
+                {/*        <option value="">— выберите —</option>*/}
+                {/*        {Object.entries(SOIL_TYPES).map(([code, name]) => (*/}
+                {/*            <option key={code} value={code}>{name}</option>*/}
+                {/*        ))}*/}
+                {/*    </select>*/}
+                {/*</label>*/}
+
                 <label>
                     Тип почвы:
-                    <select name="soilType" value={formData.soilType} onChange={handleChange}>
+                    <select
+                        name="soilType"
+                        value={formData.soilType || ''}
+                        onChange={handleChange}
+                    >
                         <option value="">— выберите —</option>
-                        {Object.entries(SOIL_TYPES).map(([code, name]) => (
-                            <option key={code} value={code}>{name}</option>
+                        {Object.entries(getSoilsByGroup()).map(([groupId, soils]) => (
+                            <optgroup key={groupId} label={SOIL_GROUPS[groupId]}>
+                                {soils.map(soil => (
+                                    <option key={soil.id} value={soil.id}>
+                                        {soil.name}
+                                    </option>
+                                ))}
+                            </optgroup>
                         ))}
                     </select>
                 </label>
