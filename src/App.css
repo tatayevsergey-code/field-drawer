@@ -226,6 +226,22 @@ body {
     color: #d32f2f;
 }
 
+.btn-agrochem {
+    background: #e8f5e9;
+    color: #2e7d32;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 4px 8px;
+    transition: all 0.2s;
+}
+
+.btn-agrochem:hover {
+    background: #2e7d32;
+    color: white;
+}
+
 /* === Карта === */
 .map-wrapper {
     flex: 1;

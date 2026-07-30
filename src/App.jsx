@@ -12,6 +12,7 @@ import '@geoman-io/leaflet-geoman-free';
 import '@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css';
 import 'leaflet/dist/leaflet.css';
 import './App.css';
+import { AgrochemistryEditor } from './components/AgrochemistryEditor';
 
 // ─── Подложки ───────────────────────────────────────────────────────
 const BASEMAPS = {
@@ -207,6 +208,7 @@ export default function App() {
     const [splitField, setSplitField] = useState(null);
     const [mousePos, setMousePos] = useState(null);
     const [focusTrigger, setFocusTrigger] = useState(null);
+    const [agrochemField, setAgrochemField] = useState(null);
 
     const {
         projects,
@@ -473,6 +475,18 @@ export default function App() {
                                         >
                                             ✂
                                         </button>
+
+                                        <button
+                                            className="btn-agrochem"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setAgrochemField(f);
+                                            }}
+                                            title="Агрохимический состав почвы"
+                                        >
+                                            🧪
+                                        </button>
+
                                         <button
                                             className="btn-delete"
                                             onClick={() => handleDeleteClick(f)}
@@ -593,6 +607,7 @@ export default function App() {
                     field={modalField}
                     onSave={handleSaveField}
                     onClose={() => setModalField(null)}
+                    // onOpenAgrochemistry={() => setAgrochemField(modalField)}
                 />
             )}
 
@@ -604,6 +619,14 @@ export default function App() {
                     onCancel={() => setConfirmDelete(null)}
                 />
             )}
+
+            {agrochemField && (
+                <AgrochemistryEditor
+                    field={agrochemField}
+                    onClose={() => setAgrochemField(null)}
+                />
+            )}
+
         </div>
     );
 }

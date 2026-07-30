@@ -7,8 +7,9 @@ import { SOIL_TYPES } from '../utils/soils';
  * @param {{id?: number, coordinates: number[][], data?: FieldData}} props.field
  * @param {function(FieldData): void} props.onSave
  * @param {function(): void} props.onClose
+ * @param {function(): void} props.onOpenAgrochemistry
  */
-export function FieldEditor({ field, onSave, onClose }) {
+export function FieldEditor({ field, onSave, onClose, onOpenAgrochemistry }) {
     const [formData, setFormData] = useState(field?.data || {
         name: '',
         cropType: '',
@@ -17,9 +18,6 @@ export function FieldEditor({ field, onSave, onClose }) {
         notes: ''
     });
 
-    /**
-     * @param {React.ChangeEvent<HTMLInputElement|HTMLSelectElement>} e
-     */
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
@@ -91,6 +89,19 @@ export function FieldEditor({ field, onSave, onClose }) {
                     <button type="submit" className="btn-primary">Сохранить</button>
                     <button type="button" onClick={onClose} className="btn-secondary">Отмена</button>
                 </div>
+
+                {/*{onOpenAgrochemistry && (*/}
+                {/*    <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #eee' }}>*/}
+                {/*        <button*/}
+                {/*            type="button"*/}
+                {/*            onClick={onOpenAgrochemistry}*/}
+                {/*            className="btn-secondary"*/}
+                {/*            style={{ width: '100%' }}*/}
+                {/*        >*/}
+                {/*            🧪 Агрохимический состав почвы*/}
+                {/*        </button>*/}
+                {/*    </div>*/}
+                {/*)}*/}
             </form>
         </div>
     );
