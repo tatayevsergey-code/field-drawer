@@ -54,6 +54,21 @@ export function useProjects() {
         ));
     }, [activeProjectId]);
 
+    const addFieldWithPlots = useCallback((plots, data) => {
+        if (!activeProjectId) return;
+
+        const newField = {
+            id: Date.now(),
+            plots: plots,          // ← принимаем готовый массив участков
+            data,
+            createdAt: new Date()
+        };
+
+        setProjects(prev => prev.map(p =>
+            p.id === activeProjectId ? { ...p, fields: [...p.fields, newField] } : p
+        ));
+    }, [activeProjectId]);
+
     const updateField = useCallback((fieldId, newData) => {
         if (!activeProjectId) return;
 
@@ -103,6 +118,7 @@ export function useProjects() {
         deleteProject,
         renameProject,
         addField,
+        addFieldWithPlots,
         updateField,
         updateFieldPlots,
         deleteField

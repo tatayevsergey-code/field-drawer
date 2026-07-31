@@ -60,7 +60,12 @@ body {
     border-color: #1976d2;
 }
 
-/* === Тулбар (одна кнопка "Нарисовать поле") === */
+.toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;          /* ← вот это добавит отступ между кнопками */
+}
+
 .toolbar button {
     width: 100%;
     padding: 12px;

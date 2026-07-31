@@ -13,6 +13,7 @@ import '@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css';
 import 'leaflet/dist/leaflet.css';
 import './App.css';
 import { AgrochemistryEditor } from './components/AgrochemistryEditor';
+import { parseImportedField } from './utils/importFieldJson';
 
 // ─── Подложки ───────────────────────────────────────────────────────
 const BASEMAPS = {
@@ -219,12 +220,15 @@ export default function App() {
         deleteProject,
         renameProject,
         addField,
+        addFieldWithPlots,
         updateField,
         updateFieldPlots,
         deleteField
     } = useProjects();
 
     const getCurrentEditRef = useRef(() => null);
+
+    const fileInputRef = useRef(null);
 
     // Поля активного проекта
     const fields = activeProject?.fields || [];
@@ -357,6 +361,34 @@ export default function App() {
         }
     };
 
+    const handleImportFile = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const json = JSON.parse(event.target.result);
+                const { coordinates, data } = parseImportedField(json);
+
+                // Если в JSON есть grid_cells — используем их как участки
+                if (data.agrochemistry?.gridCells?.length > 0) {
+                    const plots = data.agrochemistry.gridCells.map(cell => ({
+                        coordinates: cell.coordinates,
+                        area: calculateArea(cell.coordinates).toFixed(2)
+                    }));
+                    addFieldWithPlots(plots, data);
+                } else {
+                    // Обычный импорт — один контур
+                    addField(coordinates, data);
+                }
+            } catch (err) {
+                alert('Ошибка импорта: ' + err.message);
+            }
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+    };
+
     const currentBasemap = BASEMAPS[basemap];
 
     const getTotalArea = (field) => {
@@ -384,6 +416,7 @@ export default function App() {
                 {activeProject && (
                     <>
                         <hr className="sidebar-divider" />
+                        {/*<div className="toolbar" style={{ marginTop: '8px' }}>*/}
                         <div className="toolbar">
                             <button
                                 className={mode === 'draw' ? 'btn-active' : 'btn-primary'}
@@ -400,6 +433,20 @@ export default function App() {
                             >
                                 {mode === 'draw' ? '✕ Отменить' : '✎ Нарисовать поле'}
                             </button>
+                            <button
+                                className="btn-primary"
+                                onClick={() => fileInputRef.current?.click()}
+                                // style={{ background: '#4caf50', width: '100%' }}
+                            >
+                                📁 Импорт поля (JSON)
+                            </button>
+                            <input
+                                type="file"
+                                accept=".json"
+                                ref={fileInputRef}
+                                onChange={handleImportFile}
+                                style={{ display: 'none' }}
+                            />
                         </div>
 
                         {mode === 'draw' && (
