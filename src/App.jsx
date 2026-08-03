@@ -656,7 +656,7 @@ export default function App() {
                                     </Tooltip>
                                 )}
 
-                                {mapZoom >= 14 && (
+                                {mapZoom >= 16 && (
                                     <Tooltip
                                         direction="center"
                                         offset={[0, 0]}

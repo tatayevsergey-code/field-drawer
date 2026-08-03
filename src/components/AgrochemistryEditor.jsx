@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { AGRO_PARAMS } from '../utils/agrochemistry';
+import { REGIONS, validateParamValue } from '../utils/regionLimits';
+import { getSoilGroupName } from '../utils/soils';
 
 export function AgrochemistryEditor({ field, onSave, onClose }) {
     const plots = field.plots || [{ coordinates: field.coordinates }];
@@ -30,10 +32,30 @@ export function AgrochemistryEditor({ field, onSave, onClose }) {
     });
 
     const [activePlot, setActivePlot] = useState(0);
+    const [selectedRegionId, setSelectedRegionId] = useState(
+        field.data?.regionId || ''
+    );
 
     const currentSample = samplesByPlot[activePlot]?.[0] || { values: {} };
 
-    // ─── Изменение значения параметра (только ≥ 0) ──────────────────
+    // ─── Получаем группу почв из данных поля ──────────────────────
+    const soilTypeId = field.data?.soilType;
+    const soilGroupId = soilTypeId ? Number(soilTypeId) : null;
+
+    // ─── Проверка значения ──────────────────────────────────────────
+    const getValidationStatus = (paramId, value) => {
+        if (!selectedRegionId || value === undefined || value === null || value === '') {
+            return null;
+        }
+        return validateParamValue(
+            paramId,
+            Number(selectedRegionId),
+            Number(value),
+            soilGroupId
+        );
+    };
+
+    // ─── Изменение значения параметра ──────────────────────────────
     const handleValueChange = (paramId, raw) => {
         if (raw === '') {
             setSamplesByPlot(prev => {
@@ -45,7 +67,7 @@ export function AgrochemistryEditor({ field, onSave, onClose }) {
         }
 
         const val = parseFloat(raw);
-        if (isNaN(val) || val < 0) return; // игнорируем отрицательные
+        if (isNaN(val) || val < 0) return;
 
         setSamplesByPlot(prev => {
             const s = { ...prev[activePlot][0], values: { ...prev[activePlot][0].values } };
@@ -69,6 +91,7 @@ export function AgrochemistryEditor({ field, onSave, onClose }) {
 
         onSave({
             ...field.data,
+            regionId: selectedRegionId || field.data?.regionId,
             agrochemistry: {
                 ...(field.data?.agrochemistry || {}),
                 samples: flat
@@ -88,6 +111,35 @@ export function AgrochemistryEditor({ field, onSave, onClose }) {
                         <span> · {plots.length} участков</span>
                     )}
                 </p>
+
+                {/* Информация о типе почвы (только для информации) */}
+                <div style={{
+                    marginBottom: '12px',
+                    padding: '8px 12px',
+                    background: '#f5f5f5',
+                    borderRadius: '4px',
+                    fontSize: '13px',
+                    color: '#555'
+                }}>
+                    <span>🌱 Тип почвы: {field.data.soilType ? getSoilGroupName(soilGroupId) : 'не указан'}</span>
+                </div>
+
+                {/* Селектор региона */}
+                <div className="region-selector" style={{ marginBottom: '12px' }}>
+                    <label style={{ fontSize: '13px', color: '#555', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>🌍 Регион:</span>
+                        <select
+                            value={selectedRegionId}
+                            onChange={(e) => setSelectedRegionId(e.target.value)}
+                            style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                        >
+                            <option value="">--- выберите регион ---</option>
+                            {REGIONS.map(r => (
+                                <option key={r.id} value={r.id}>{r.name}</option>
+                            ))}
+                        </select>
+                    </label>
+                </div>
 
                 {/* Табы участков */}
                 {hasMultiplePlots && (
@@ -113,25 +165,58 @@ export function AgrochemistryEditor({ field, onSave, onClose }) {
                             <th className="col-param">Параметр</th>
                             <th className="col-unit">Ед. изм.</th>
                             <th className="col-val">Значение</th>
+                            <th className="col-status" style={{ width: '18%' }}>Статус</th>
                         </tr>
                         </thead>
                         <tbody>
-                        {AGRO_PARAMS.map(param => (
-                            <tr key={param.id}>
-                                <td className="col-param">{param.name}</td>
-                                <td className="col-unit">{param.unit}</td>
-                                <td className="col-val">
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        value={currentSample.values[param.id] ?? ''}
-                                        onChange={e => handleValueChange(param.id, e.target.value)}
-                                        placeholder="—"
-                                    />
-                                </td>
-                            </tr>
-                        ))}
+                        {AGRO_PARAMS.map(param => {
+                            const value = currentSample.values[param.id];
+                            const validation = getValidationStatus(param.id, value);
+
+                            let statusColor = '#999';
+                            let statusText = '—';
+                            if (validation && validation.max !== null) {
+                                if (!validation.isValid) {
+                                    statusColor = '#d32f2f';
+                                    statusText = `⚠️`;
+                                } else {
+                                    statusColor = '#2e7d32';
+                                    statusText = `✅`;
+                                }
+                            }
+
+                            return (
+                                <tr key={param.id}>
+                                    <td className="col-param">{param.name}</td>
+                                    <td className="col-unit">{param.unit}</td>
+                                    <td className="col-val">
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            value={value ?? ''}
+                                            onChange={e => handleValueChange(param.id, e.target.value)}
+                                            placeholder="---"
+                                            style={{
+                                                borderColor: validation && validation.max !== null && !validation.isValid
+                                                    ? '#d32f2f'
+                                                    : validation && validation.max !== null
+                                                        ? '#2e7d32'
+                                                        : '#ddd'
+                                            }}
+                                        />
+                                    </td>
+                                    <td className="col-status" style={{ fontSize: '12px', color: statusColor }}>
+                                        {statusText}
+                                        {validation && validation.max !== null && (
+                                            <div style={{ fontSize: '9px', color: '#999', marginTop: '1px' }}>
+                                                макс: {validation.max}
+                                            </div>
+                                        )}
+                                    </td>
+                                </tr>
+                            );
+                        })}
                         </tbody>
                     </table>
                 </div>

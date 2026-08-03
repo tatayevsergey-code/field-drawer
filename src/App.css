@@ -704,3 +704,38 @@ body {
 .leaflet-tooltip-right.plot-agro-label::before {
     border-left-color: rgba(121, 85, 72, 0.88);
 }
+
+/* Стили для статуса валидации */
+.agro-table .col-status {
+    font-size: 12px;
+    font-weight: 500;
+    padding: 6px 8px;
+}
+
+.agro-table .col-status .hint {
+    font-size: 10px;
+    font-weight: 400;
+    opacity: 0.7;
+}
+
+/* Стили для селектора региона */
+.region-selector select {
+    min-width: 200px;
+    padding: 6px 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 13px;
+    background: white;
+    cursor: pointer;
+}
+
+.region-selector select:focus {
+    outline: none;
+    border-color: #1976d2;
+}
+
+.region-selector label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
