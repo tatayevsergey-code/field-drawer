@@ -14,6 +14,7 @@ import 'leaflet/dist/leaflet.css';
 import './App.css';
 import { AgrochemistryEditor } from './components/AgrochemistryEditor';
 import { parseImportedField } from './utils/importFieldJson';
+import { getAgroParam } from './utils/agrochemistry';
 
 // ─── Подложки ───────────────────────────────────────────────────────
 const BASEMAPS = {
@@ -199,6 +200,17 @@ function MapFocusController({ focusTrigger }) {
     return null;
 }
 
+function ZoomTracker({ onZoomChange }) {
+    const map = useMap();
+    useEffect(() => {
+        const handler = () => onZoomChange(map.getZoom());
+        map.on('zoomend', handler);
+        onZoomChange(map.getZoom());
+        return () => map.off('zoomend', handler);
+    }, [map, onZoomChange]);
+    return null;
+}
+
 export default function App() {
     const [mode, setMode] = useState('view');
     const [basemap, setBasemap] = useState('osm');
@@ -210,6 +222,7 @@ export default function App() {
     const [mousePos, setMousePos] = useState(null);
     const [focusTrigger, setFocusTrigger] = useState(null);
     const [agrochemField, setAgrochemField] = useState(null);
+    const [mapZoom, setMapZoom] = useState(13);
 
     const {
         projects,
@@ -583,6 +596,8 @@ export default function App() {
 
                     <MapFocusController focusTrigger={focusTrigger} />
 
+                    <ZoomTracker onZoomChange={setMapZoom} />
+
                     <MapEventHandler
                         mode={mode}
                         splitField={splitField}
@@ -614,7 +629,20 @@ export default function App() {
                                     click: () => handleFieldClick(f)
                                 }}
                             >
-                                {plotIdx === 0 && (
+                                {/*{plotIdx === 0 && (*/}
+                                {/*    <Tooltip*/}
+                                {/*        direction="center"*/}
+                                {/*        offset={[0, 0]}*/}
+                                {/*        opacity={1}*/}
+                                {/*        permanent*/}
+                                {/*        className="field-label"*/}
+                                {/*    >*/}
+                                {/*        <span>{f.data.name || 'Без названия'}</span>*/}
+                                {/*        <br />*/}
+                                {/*        <small>{getCropName(f.data.cropType)} · {getTotalArea(f).toFixed(2)} га</small>*/}
+                                {/*    </Tooltip>*/}
+                                {/*)}*/}
+                                {plotIdx === 0 && mapZoom < 14 && (
                                     <Tooltip
                                         direction="center"
                                         offset={[0, 0]}
@@ -625,6 +653,34 @@ export default function App() {
                                         <span>{f.data.name || 'Без названия'}</span>
                                         <br />
                                         <small>{getCropName(f.data.cropType)} · {getTotalArea(f).toFixed(2)} га</small>
+                                    </Tooltip>
+                                )}
+
+                                {mapZoom >= 14 && (
+                                    <Tooltip
+                                        direction="center"
+                                        offset={[0, 0]}
+                                        opacity={1}
+                                        permanent
+                                        className="plot-agro-label"
+                                    >
+                                        <div className="plot-label-num">№ {plotIdx + 1}</div>
+                                        {(() => {
+                                            const samples = f.data?.agrochemistry?.samples || [];
+                                            const sample = samples.find(s =>
+                                                s.plotIndex !== undefined ? s.plotIndex === plotIdx : s.number === plotIdx + 1
+                                            );
+                                            if (!sample?.values) return null;
+                                            return Object.entries(sample.values).map(([paramId, val]) => {
+                                                const param = getAgroParam(paramId);
+                                                if (!param) return null;
+                                                return (
+                                                    <div key={paramId} className="plot-label-param">
+                                                        {param.unit} {val}
+                                                    </div>
+                                                );
+                                            });
+                                        })()}
                                     </Tooltip>
                                 )}
                             </Polygon>
