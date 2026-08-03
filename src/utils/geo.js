@@ -1,76 +1,106 @@
+import { AGRO_PARAMS } from './agrochemistry';
+import { getSoilName } from './soils';
+
 /**
- * Вычисляет площадь полигона на сфероиде WGS-84
- * Формула сферического эксцесса (Гаусса-Бонне)
- * @param {number[][]} coords - массив точек [[lat, lng], ...]
- * @returns {number} площадь в гектарах
+ * Преобразует координаты из нашего формата [lat, lng] в GeoJSON [lng, lat]
+ */
+function convertToGeoJSON(coords) {
+    return coords.map(([lat, lng]) => [lng, lat]);
+}
+
+/**
+ * Экспортирует поле в JSON для передачи на backend
+ * @param {Object} field - объект поля из состояния
+ * @returns {Object} JSON в формате backend
+ */
+export function exportFieldToJson(field) {
+    // Внешний контур: если сохранён при импорте — используем его, иначе берём первый plot
+    const outerBoundary = field.data.outerBoundary || field.plots[0]?.coordinates || [];
+    const outerCoords = convertToGeoJSON(outerBoundary);
+
+    // Участки (grid_cells)
+    const gridCells = field.plots.map((plot, idx) => ({
+        number: idx + 1,
+        border: {
+            type: "Polygon",
+            coordinates: [convertToGeoJSON(plot.coordinates)]
+        }
+    }));
+
+    // Вещества из справочника
+    const substances = AGRO_PARAMS.map(p => ({
+        id: p.id,
+        name: p.name,
+        symbol: p.unit
+    }));
+
+    // Пробы с значениями — группируем по plotIndex, для каждого участка первая проба
+    const rawSamples = field.data.agrochemistry?.samples || [];
+    const samples = [];
+
+    field.plots.forEach((_, plotIdx) => {
+        const plotSamples = rawSamples.filter(s =>
+            s.plotIndex !== undefined ? s.plotIndex === plotIdx : s.number === plotIdx + 1
+        );
+        // Берём первую пробу участка (или создаём пустую заглушку)
+        const s = plotSamples[0] || { values: {} };
+        samples.push({
+            number: plotIdx + 1,
+            count_substances: Object.entries(s.values || {}).map(([subId, count]) => ({
+                count: count,
+                substance_id: Number(subId)
+            }))
+        });
+    });
+
+    // Тип почвы
+    const soilTypeId = field.data.soilType ? Number(field.data.soilType) : null;
+
+    return {
+        id: field.id,
+        name: field.data.name || "Без названия",
+        characteristic: {
+            coordinate: {
+                type: "MultiPolygon",
+                coordinates: [[outerCoords]]
+            }
+        },
+        soil_agrophysical_property: {
+            soil_type: soilTypeId ? {
+                id: soilTypeId,
+                name: getSoilName(soilTypeId),
+                name_with_organization: getSoilName(soilTypeId)
+            } : null
+        },
+        agrochemical_analysis: {
+            substances,
+            grid_cells: gridCells,
+            samples
+        },
+        country_region: field.data.countryRegion || null
+    };
+}
+
+/**
+ * Расчёт площади полигона по формуле Гаусса (шаровая аппроксимация)
+ * Возвращает площадь в гектарах
  */
 export function calculateArea(coords) {
     if (!coords || coords.length < 3) return 0;
-
-    const R = 6371000; // радиус Земли в метрах
     let area = 0;
     const n = coords.length;
-
     for (let i = 0; i < n; i++) {
         const [lat1, lng1] = coords[i];
         const [lat2, lng2] = coords[(i + 1) % n];
-
-        const lat1Rad = lat1 * Math.PI / 180;
-        const lat2Rad = lat2 * Math.PI / 180;
-        const dLng = (lng2 - lng1) * Math.PI / 180;
-
-        area += dLng * (2 + Math.sin(lat1Rad) + Math.sin(lat2Rad));
+        area += (lng2 - lng1) * (2 + Math.sin(lat1 * Math.PI / 180) + Math.sin(lat2 * Math.PI / 180));
     }
-
-    area = Math.abs(area) * R * R / 2;
-    return area / 10000; // в гектарах
-}
-
-export function calculateTotalArea(plots) {
-    return plots.reduce((sum, plot) => sum + (parseFloat(plot.area) || 0), 0);
+    area = Math.abs(area) * 6371 * 6371 / 2 * Math.PI / 180;
+    return area * 100; // км² → га (приближённо)
 }
 
 /**
- * Сдвигает точку за пределы полигона в направлении от центра
- * Это гарантирует, что линия разреза пересечёт полигон
+ * Суммарная площадь всех участков поля
  */
-export function adjustPointOutsidePolygon(point, polygon) {
-    // Находим центр масс полигона
-    let centerLat = 0, centerLng = 0;
-    for (const [lat, lng] of polygon) {
-        centerLat += lat;
-        centerLng += lng;
-    }
-    centerLat /= polygon.length;
-    centerLng /= polygon.length;
-
-    // Вектор от центра к точке
-    const dLat = point[0] - centerLat;
-    const dLng = point[1] - centerLng;
-
-    // Удлиняем вектор в 10 раз — точка далеко за пределами полигона
-    const extendedLat = centerLat + dLat * 10;
-    const extendedLng = centerLng + dLng * 10;
-
-    return [extendedLat, extendedLng];
-}
-
-/**
- * Ray casting algorithm — точка внутри полигона?
- */
-export function isPointInPolygon(point, polygon) {
-    const [lat, lng] = point;
-    let inside = false;
-
-    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-        const [latI, lngI] = polygon[i];
-        const [latJ, lngJ] = polygon[j];
-
-        if (((latI > lat) !== (latJ > lat)) &&
-            (lng < (lngJ - lngI) * (lat - latI) / (latJ - latI) + lngI)) {
-            inside = !inside;
-        }
-    }
-
-    return inside;
+export function calculateTotalArea(field) {
+    return field.plots.reduce((sum, p) => sum + (parseFloat(p.area) || 0), 0);
 }

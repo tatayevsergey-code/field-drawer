@@ -670,6 +670,7 @@ export default function App() {
             {agrochemField && (
                 <AgrochemistryEditor
                     field={agrochemField}
+                    onSave={(data) => updateField(agrochemField.id, data)}
                     onClose={() => setAgrochemField(null)}
                 />
             )}

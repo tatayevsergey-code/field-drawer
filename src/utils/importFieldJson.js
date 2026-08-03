@@ -59,7 +59,12 @@ export function parseImportedField(json) {
                 s.count_substances?.forEach(cs => {
                     values[cs.substance_id] = cs.count;
                 });
-                return { number: s.number, values };
+                // plotIndex связывает пробу с участком (number-1 из внешнего формата)
+                return {
+                    number: s.number,
+                    plotIndex: s.number - 1,
+                    values
+                };
             });
         }
 

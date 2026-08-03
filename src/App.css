@@ -542,3 +542,135 @@ body {
 /*.leaflet-control-attribution {*/
 /*    display: none;*/
 /*}*/
+
+/* === Агрохимический редактор === */
+.modal-wide {
+    width: 520px;
+    max-width: 95vw;
+}
+
+.agro-subtitle {
+    color: #666;
+    font-size: 13px;
+    margin-bottom: 16px;
+}
+
+/* Табы участков */
+.plot-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.plot-tabs button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 6px 10px;
+    border: 1px solid #ddd;
+    background: white;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s;
+    min-width: 72px;
+}
+
+.plot-tabs button:hover {
+    background: #f5f5f5;
+}
+
+.plot-tabs button.active {
+    background: #1976d2;
+    color: white;
+    border-color: #1976d2;
+}
+
+.plot-tabs button span {
+    font-weight: 500;
+}
+
+.plot-tabs button small {
+    font-size: 10px;
+    opacity: 0.8;
+    margin-top: 2px;
+}
+
+/* Таблица параметров */
+.agro-table-wrap {
+    max-height: 380px;
+    overflow-y: auto;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    margin-bottom: 16px;
+}
+
+.agro-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.agro-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.agro-table th {
+    background: #f5f5f5;
+    padding: 8px 10px;
+    text-align: left;
+    font-weight: 600;
+    color: #444;
+    border-bottom: 1px solid #ddd;
+}
+
+.agro-table td {
+    padding: 6px 10px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.agro-table tr:hover td {
+    background: #fafafa;
+}
+
+.agro-table .col-param {
+    width: 55%;
+}
+
+.agro-table .col-unit {
+    width: 25%;
+    color: #666;
+    font-size: 12px;
+}
+
+.agro-table .col-val {
+    width: 20%;
+}
+
+.agro-table .col-val input {
+    width: 100%;
+    padding: 4px 6px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 13px;
+    text-align: right;
+}
+
+.agro-table .col-val input:focus {
+    outline: none;
+    border-color: #1976d2;
+}
+
+/* Убираем стрелки у number-инпутов (опционально) */
+.agro-table .col-val input::-webkit-outer-spin-button,
+.agro-table .col-val input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.agro-table .col-val input[type=number] {
+    -moz-appearance: textfield;
+}
