@@ -1,5 +1,6 @@
 import { calculateArea } from './geo';
 import { SOIL_TYPES, SOIL_GROUPS } from './soils';
+import { findRegionByCode, findRegionByName } from './regions';
 
 function isPoint(arr) {
     return Array.isArray(arr) && arr.length === 2 && typeof arr[0] === 'number';
@@ -40,11 +41,42 @@ export function parseImportedField(json) {
         }
     }
 
+    // Определяем регион из country_region
+    let regionId = null;
+    const countryRegion = json.country_region;
+
+    if (countryRegion) {
+        // Сначала пробуем найти по коду
+        if (countryRegion.code) {
+            regionId = findRegionByCode(countryRegion.code);
+        }
+
+        // Если не нашли по коду, пробуем по названию
+        if (!regionId && countryRegion.full_name) {
+            regionId = findRegionByName(countryRegion.full_name);
+        }
+
+        // Если не нашли, пробуем по имени
+        if (!regionId && countryRegion.name) {
+            regionId = findRegionByName(countryRegion.name);
+        }
+    }
+
+    // Если не нашли в country_region, пробуем из region_id
+    if (!regionId && json.region_id) {
+        regionId = Number(json.region_id);
+        // Проверяем, что такой регион существует
+        const { getRegion } = require('./regions');
+        if (!getRegion(regionId)) {
+            regionId = null;
+        }
+    }
+
     // --- Примечания: только регион ---
     const notesParts = [];
-    if (json.country_region?.full_name) {
-        notesParts.push(`Регион: ${json.country_region.full_name}`);
-    }
+    // if (json.country_region?.full_name) {
+    //     notesParts.push(`Регион: ${json.country_region.full_name}`);
+    // }
 
     // --- Агрохимия ---
     const agrochemistry = {
@@ -81,6 +113,7 @@ export function parseImportedField(json) {
         cropType: '',
         area: area,
         soilType: soilTypeId,
+        regionId: regionId,
         notes: notesParts.join('\n'),
         agrochemistry,
         outerBoundary: coordinates,

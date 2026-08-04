@@ -1,5 +1,6 @@
 import { AGRO_PARAMS } from './agrochemistry';
 import { getSoilName } from './soils';
+import { getRegion, getSubject } from './regions';
 
 /**
  * Преобразует координаты из нашего формата [lat, lng] в GeoJSON [lng, lat]
@@ -46,9 +47,24 @@ export function exportFieldToJson(field) {
     // Тип почвы
     const soilTypeId = field.data.soilType ? Number(field.data.soilType) : null;
 
+    let countryRegion = field.data.countryRegion || null;
+    // Если нет country_region, но есть regionId, создаём из наших данных
+    if (!countryRegion && field.data.regionId) {
+        const region = getRegion(field.data.regionId);
+        if (region) {
+            countryRegion = {
+                full_name: region.name,
+                name: region.name,
+                // code пытаемся найти среди субъектов
+                code: null
+            };
+        }
+    }
+
     return {
         id: field.id,
         name: field.data.name || "Без названия",
+        region_id: field.data.regionId || null, // ← добавляем region_id
         characteristic: {
             coordinate: {
                 type: "MultiPolygon",

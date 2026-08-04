@@ -1,3 +1,4 @@
+// App.jsx
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { MapContainer, TileLayer, Polygon, Polyline, CircleMarker, Tooltip, useMap, useMapEvents } from 'react-leaflet';
 import { FieldEditor } from './components/FieldEditor';
@@ -7,6 +8,7 @@ import { useProjects } from './hooks/useProjects';
 import { calculateArea, calculateTotalArea } from './utils/geo';
 import { getCropName } from './utils/crops';
 import { splitPolygonByLine } from './utils/polygonSplit';
+import { findRegionByName } from './utils/regions';
 import L from 'leaflet';
 import '@geoman-io/leaflet-geoman-free';
 import '@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css';
@@ -223,6 +225,7 @@ export default function App() {
     const [focusTrigger, setFocusTrigger] = useState(null);
     const [agrochemField, setAgrochemField] = useState(null);
     const [mapZoom, setMapZoom] = useState(13);
+    // const [isDetectingRegion, setIsDetectingRegion] = useState(false);
 
     const {
         projects,
@@ -240,20 +243,30 @@ export default function App() {
     } = useProjects();
 
     const getCurrentEditRef = useRef(() => null);
-
     const fileInputRef = useRef(null);
 
     // Поля активного проекта
     const fields = activeProject?.fields || [];
 
+    // ─── Создание поля ──────────────────────────────────────────────
+// В App.jsx обновляем handleCreate
     const handleCreate = useCallback((coords, area) => {
+        // console.log('📝 Создание нового поля');
         setMode('view');
-        setModalField({
+        const tempField = {
             coordinates: coords,
             data: { area: area.toFixed(2) }
+        };
+
+        setModalField({
+            ...tempField,
+            detectedRegionId: null,
+            detectedSubjectId: null,
+            isDetecting: true
         });
     }, []);
 
+    // ─── Сохранение редактирования геометрии ────────────────────────
     const handleSaveEdit = useCallback(() => {
         const result = getCurrentEditRef.current();
         if (result) {
@@ -272,6 +285,7 @@ export default function App() {
         setMode('view');
     }, [fields, updateFieldPlots]);
 
+    // ─── Сохранение данных поля ──────────────────────────────────────
     const handleSaveField = (data) => {
         if (modalField.id) {
             updateField(modalField.id, data);
@@ -281,6 +295,57 @@ export default function App() {
         setModalField(null);
     };
 
+    // ─── Импорт поля из JSON ────────────────────────────────────────
+    const handleImportFile = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            try {
+                const json = JSON.parse(event.target.result);
+                const { coordinates, data } = parseImportedField(json);
+
+                // Если в JSON есть country_region, пробуем найти регион
+                if (!data.regionId && data.countryRegion) {
+                    const regionId = findRegionByName(data.countryRegion.full_name || data.countryRegion.name);
+                    if (regionId) {
+                        data.regionId = regionId;
+                    }
+                }
+
+                // Если всё ещё нет regionId, определяем в фоне
+                if (!data.regionId) {
+                    const tempField = { coordinates, data };
+                    // Открываем форму с флагом определения
+                    setModalField({
+                        coordinates,
+                        data,
+                        detectedRegionId: null,
+                        detectedSubjectId: null,
+                        isDetecting: true
+                    });
+                    return;
+                }
+
+                if (data.agrochemistry?.gridCells?.length > 0) {
+                    const plots = data.agrochemistry.gridCells.map(cell => ({
+                        coordinates: cell.coordinates,
+                        area: calculateArea(cell.coordinates).toFixed(2)
+                    }));
+                    addFieldWithPlots(plots, data);
+                } else {
+                    addField(coordinates, data);
+                }
+            } catch (err) {
+                alert('Ошибка импорта: ' + err.message);
+            }
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+    };
+
+    // ─── Взаимодействие с полями ────────────────────────────────────
     const handleFieldClick = (field) => {
         if (mode === 'split' && !splitField) {
             setSplitField(field);
@@ -288,7 +353,7 @@ export default function App() {
         }
         if (mode === 'split' && splitField) return;
         setModalField(field);
-        setFocusTrigger({ field, ts: Date.now() }); // ← триггерим центрирование
+        setFocusTrigger({ field, ts: Date.now() });
     };
 
     const handleEditGeometry = (field) => {
@@ -374,34 +439,6 @@ export default function App() {
         }
     };
 
-    const handleImportFile = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            try {
-                const json = JSON.parse(event.target.result);
-                const { coordinates, data } = parseImportedField(json);
-
-                // Если в JSON есть grid_cells — используем их как участки
-                if (data.agrochemistry?.gridCells?.length > 0) {
-                    const plots = data.agrochemistry.gridCells.map(cell => ({
-                        coordinates: cell.coordinates,
-                        area: calculateArea(cell.coordinates).toFixed(2)
-                    }));
-                    addFieldWithPlots(plots, data);
-                } else {
-                    // Обычный импорт — один контур
-                    addField(coordinates, data);
-                }
-            } catch (err) {
-                alert('Ошибка импорта: ' + err.message);
-            }
-        };
-        reader.readAsText(file);
-        e.target.value = '';
-    };
-
     const currentBasemap = BASEMAPS[basemap];
 
     const getTotalArea = (field) => {
@@ -411,7 +448,6 @@ export default function App() {
     return (
         <div className="app">
             <aside className="sidebar">
-
                 <BasemapSelector current={basemap} onChange={setBasemap} />
                 <hr className="sidebar-divider" />
 
@@ -429,7 +465,6 @@ export default function App() {
                 {activeProject && (
                     <>
                         <hr className="sidebar-divider" />
-                        {/*<div className="toolbar" style={{ marginTop: '8px' }}>*/}
                         <div className="toolbar">
                             <button
                                 className={mode === 'draw' ? 'btn-active' : 'btn-primary'}
@@ -449,7 +484,6 @@ export default function App() {
                             <button
                                 className="btn-primary"
                                 onClick={() => fileInputRef.current?.click()}
-                                // style={{ background: '#4caf50', width: '100%' }}
                             >
                                 📁 Импорт поля (JSON)
                             </button>
@@ -462,10 +496,15 @@ export default function App() {
                             />
                         </div>
 
+                        {/*isDetectingRegion && (
+                            <div className="hint" style={{ background: '#e3f2fd', borderColor: '#1976d2', color: '#1565c0' }}>
+                                🔍 Определение региона по координатам...
+                            </div>
+                        )*/}
+
                         {mode === 'draw' && (
                             <div className="hint">
-                                Кликайте по карте для вершин.
-                                Двойной клик — завершить.
+                                Кликайте по карте для вершин. Двойной клик — завершить.
                             </div>
                         )}
 
@@ -484,8 +523,7 @@ export default function App() {
                                     ? 'Выберите поле для разбиения (клик на полигоне)'
                                     : splitPoints.length === 0
                                         ? `Разбиение «${splitField.data.name}». Кликните первую точку на границе.`
-                                        : 'Кликните вторую точку на противоположной границе.'
-                                }
+                                        : 'Кликните вторую точку на противоположной границе.'}
                                 <button onClick={handleCancelModes} className="btn-small">
                                     Отмена
                                 </button>
@@ -495,9 +533,9 @@ export default function App() {
                         <div className="stats">
                             <span>Полей: {fields.length}</span>
                             <span>
-                                Общая площадь: {' '}
+                Общая площадь: {' '}
                                 {fields.reduce((s, f) => s + getTotalArea(f), 0).toFixed(2)} га
-                            </span>
+              </span>
                         </div>
 
                         <h3>Список полей</h3>
@@ -517,6 +555,7 @@ export default function App() {
                                     <div className="field-meta" onClick={() => handleFieldClick(f)}>
                                         {f.data.cropType && `${getCropName(f.data.cropType)} · `}
                                         {getTotalArea(f).toFixed(2)} га
+                                        {f.data.regionId && ` · ${f.data.regionId}`}
                                     </div>
                                     <div className="field-actions">
                                         {f.plots.length === 1 && (
@@ -535,7 +574,6 @@ export default function App() {
                                         >
                                             ✂
                                         </button>
-
                                         <button
                                             className="btn-agrochem"
                                             onClick={(e) => {
@@ -546,7 +584,6 @@ export default function App() {
                                         >
                                             🧪
                                         </button>
-
                                         <button
                                             className="btn-delete"
                                             onClick={() => handleDeleteClick(f)}
@@ -567,10 +604,9 @@ export default function App() {
                     </div>
                 )}
 
-                <div style={{fontSize: '11px', color: '#999', marginTop: 'auto'}}>
+                <div style={{ fontSize: '11px', color: '#999', marginTop: 'auto' }}>
                     © OpenStreetMap contributors · © Esri
                 </div>
-
             </aside>
 
             <main className="map-wrapper">
@@ -595,7 +631,6 @@ export default function App() {
                     )}
 
                     <MapFocusController focusTrigger={focusTrigger} />
-
                     <ZoomTracker onZoomChange={setMapZoom} />
 
                     <MapEventHandler
@@ -629,19 +664,6 @@ export default function App() {
                                     click: () => handleFieldClick(f)
                                 }}
                             >
-                                {/*{plotIdx === 0 && (*/}
-                                {/*    <Tooltip*/}
-                                {/*        direction="center"*/}
-                                {/*        offset={[0, 0]}*/}
-                                {/*        opacity={1}*/}
-                                {/*        permanent*/}
-                                {/*        className="field-label"*/}
-                                {/*    >*/}
-                                {/*        <span>{f.data.name || 'Без названия'}</span>*/}
-                                {/*        <br />*/}
-                                {/*        <small>{getCropName(f.data.cropType)} · {getTotalArea(f).toFixed(2)} га</small>*/}
-                                {/*    </Tooltip>*/}
-                                {/*)}*/}
                                 {plotIdx === 0 && mapZoom < 14 && (
                                     <Tooltip
                                         direction="center"
@@ -656,7 +678,7 @@ export default function App() {
                                     </Tooltip>
                                 )}
 
-                                {mapZoom >= 16 && (
+                                {mapZoom >= 14 && (
                                     <Tooltip
                                         direction="center"
                                         offset={[0, 0]}
@@ -710,7 +732,9 @@ export default function App() {
                     field={modalField}
                     onSave={handleSaveField}
                     onClose={() => setModalField(null)}
-                    // onOpenAgrochemistry={() => setAgrochemField(modalField)}
+                    detectedRegionId={modalField.detectedRegionId}
+                    detectedSubjectId={modalField.detectedSubjectId}
+                    isDetecting={modalField.isDetecting || false}
                 />
             )}
 
@@ -730,7 +754,6 @@ export default function App() {
                     onClose={() => setAgrochemField(null)}
                 />
             )}
-
         </div>
     );
 }

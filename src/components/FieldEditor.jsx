@@ -1,36 +1,217 @@
-import { useState } from 'react';
+// components/FieldEditor.jsx
+import { useState, useEffect, useRef } from 'react';
 import { CROP_NAMES } from '../utils/crops';
-import { SOIL_TYPES, SOIL_GROUPS, getSoilsByGroup } from '../utils/soils';
-/**
- * @param {Object} props
- * @param {{id?: number, coordinates: number[][], data?: FieldData}} props.field
- * @param {function(FieldData): void} props.onSave
- * @param {function(): void} props.onClose
- * @param {function(): void} props.onOpenAgrochemistry
- */
-export function FieldEditor({ field, onSave, onClose, onOpenAgrochemistry }) {
+import { SOIL_GROUPS, getSoilsByGroup } from '../utils/soils';
+import { REGION_SUBJECTS, getRegionName } from '../utils/regions';
+import { detectRegionForField } from '../utils/regionDetector';
+
+export function FieldEditor({
+                                field,
+                                onSave,
+                                onClose,
+                                detectedRegionId: initialDetectedRegionId,
+                                detectedSubjectId: initialDetectedSubjectId,
+                                isDetecting: initialIsDetecting = false
+                            }) {
     const [formData, setFormData] = useState(field?.data || {
         name: '',
         cropType: '',
         area: '',
         soilType: '',
+        regionId: initialDetectedRegionId || '',
+        subjectId: initialDetectedSubjectId || '',
         notes: ''
     });
 
+    const [detectedRegionId, setDetectedRegionId] = useState(initialDetectedRegionId || null);
+    const [detectedSubjectId, setDetectedSubjectId] = useState(initialDetectedSubjectId || null);
+    const [isDetecting, setIsDetecting] = useState(initialIsDetecting || false);
+    const [detectionError, setDetectionError] = useState(null);
+    const [isAutoDetected, setIsAutoDetected] = useState(false);
+    const [isAutoSubjectSet, setIsAutoSubjectSet] = useState(false); // ← флаг, что субъект установлен автоматически
+
+    const detectionStartedRef = useRef(false);
+
+    // Автоопределение региона при открытии формы (только один раз)
+    useEffect(() => {
+        if (detectedRegionId || detectionStartedRef.current) return;
+
+        const coords = field?.coordinates || field?.plots?.[0]?.coordinates;
+        if (!coords || coords.length === 0) return;
+
+        detectionStartedRef.current = true;
+
+        // console.log('🔍 Запуск автоопределения региона в FieldEditor');
+        setIsDetecting(true);
+        setDetectionError(null);
+
+        detectRegionForField(field)
+            .then(result => {
+                // console.log('📊 Результат определения региона:', result);
+
+                if (result) {
+                    setDetectedRegionId(result.regionId);
+                    setDetectedSubjectId(result.subjectId);
+                    setIsAutoDetected(true);
+                    setIsAutoSubjectSet(true); // ← помечаем, что субъект установлен автоматически
+
+                    setFormData(prev => ({
+                        ...prev,
+                        regionId: result.regionId,
+                        subjectId: result.subjectId || prev.subjectId
+                    }));
+
+                    // console.log(`✅ Регион определён: ${result.regionId}, субъект: ${result.subjectId}`);
+                } else {
+                    setDetectionError('Не удалось определить регион автоматически');
+                    // console.warn('⚠️ Регион не определён');
+                }
+            })
+            .catch(err => {
+                // console.error('❌ Ошибка определения региона:', err);
+                setDetectionError('Ошибка при определении региона');
+            })
+            .finally(() => {
+                setIsDetecting(false);
+            });
+    }, [field, detectedRegionId]);
+
+    // При выборе субъекта автоматически устанавливаем регион
+    const handleSubjectChange = (subjectId) => {
+        const subject = REGION_SUBJECTS.find(s => s.id === Number(subjectId));
+        if (subject) {
+            setFormData(prev => ({
+                ...prev,
+                subjectId: subjectId,
+                regionId: subject.regionId
+            }));
+
+            // Если пользователь выбрал субъект вручную (не совпадает с автоопределённым)
+            if (detectedSubjectId && subjectId !== String(detectedSubjectId)) {
+                setIsAutoSubjectSet(false);
+                // console.log(`🔄 Пользователь выбрал другой субъект: ${subject.name}`);
+            } else if (detectedSubjectId && subjectId === String(detectedSubjectId)) {
+                // Если совпадает с автоопределённым, считаем что это автоопределение
+                setIsAutoSubjectSet(true);
+            }
+
+            // console.log(`🔄 Выбран субъект: ${subject.name}, регион: ${subject.regionId}`);
+        } else {
+            setFormData(prev => ({
+                ...prev,
+                subjectId: subjectId,
+                regionId: ''
+            }));
+            setIsAutoSubjectSet(false);
+        }
+    };
+
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+
+        if (name === 'subjectId') {
+            handleSubjectChange(value);
+        } else {
+            setFormData(prev => ({ ...prev, [name]: value }));
+        }
     };
 
     const handleSubmit = (e) => {
         e.preventDefault();
+        // console.log('💾 Сохранение поля с данными:', formData);
         onSave(formData);
     };
+
+    // Находим название региона для отображения
+    const regionName = formData.regionId ? getRegionName(formData.regionId) : null;
+
+    // Проверяем, совпадает ли выбранный субъект с автоматически определённым
+    const isSubjectMatched = detectedSubjectId && formData.subjectId === String(detectedSubjectId);
+
+    // Показываем предупреждение только если:
+    // 1. Был автоопределён субъект
+    // 2. Пользователь вручную изменил выбор
+    // 3. Выбранный субъект не совпадает с автоопределённым
+    const showSubjectMismatch = isAutoDetected &&
+        !isAutoSubjectSet &&
+        detectedSubjectId &&
+        formData.subjectId &&
+        !isSubjectMatched;
 
     return (
         <div className="modal-overlay">
             <form className="modal" onSubmit={handleSubmit}>
                 <h3>{field.id ? 'Редактирование' : 'Новое поле'}</h3>
+
+                {/* Индикатор определения региона */}
+                {isDetecting && (
+                    <div style={{
+                        padding: '10px 14px',
+                        background: '#e3f2fd',
+                        borderRadius: '6px',
+                        marginBottom: '16px',
+                        fontSize: '13px',
+                        color: '#1565c0',
+                        border: '1px solid #1976d2',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}>
+                        <span style={{ fontSize: '18px' }}>🔍</span>
+                        <div>
+                            <div>Определение региона по координатам...</div>
+                            <div style={{ fontSize: '12px', opacity: 0.8 }}>Это может занять несколько секунд</div>
+                        </div>
+                    </div>
+                )}
+
+                {!isDetecting && detectedRegionId && (
+                    <div style={{
+                        padding: '10px 14px',
+                        background: '#e8f5e9',
+                        borderRadius: '6px',
+                        marginBottom: '16px',
+                        fontSize: '13px',
+                        color: '#2e7d32',
+                        border: '1px solid #4caf50',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}>
+                        <span style={{ fontSize: '18px' }}>✅</span>
+                        <div>
+                            <div style={{ fontWeight: '500' }}>
+                                Регион определён автоматически: {regionName || detectedRegionId}
+                            </div>
+                            {detectedSubjectId && isAutoSubjectSet && (
+                                <div style={{ fontSize: '12px', opacity: 0.8 }}>
+                                    Субъект: {REGION_SUBJECTS.find(s => s.id === detectedSubjectId)?.name || 'не определён'}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {!isDetecting && !detectedRegionId && detectionError && (
+                    <div style={{
+                        padding: '10px 14px',
+                        background: '#ffebee',
+                        borderRadius: '6px',
+                        marginBottom: '16px',
+                        fontSize: '13px',
+                        color: '#c62828',
+                        border: '1px solid #ef5350',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}>
+                        <span style={{ fontSize: '18px' }}>⚠️</span>
+                        <div>
+                            <div>{detectionError}</div>
+                            <div style={{ fontSize: '12px', opacity: 0.8 }}>Выберите субъект вручную из списка ниже</div>
+                        </div>
+                    </div>
+                )}
 
                 <label>
                     Название:
@@ -45,7 +226,7 @@ export function FieldEditor({ field, onSave, onClose, onOpenAgrochemistry }) {
                 <label>
                     Культура:
                     <select name="cropType" value={formData.cropType} onChange={handleChange}>
-                        <option value="">— выберите —</option>
+                        <option value="">--- выберите ---</option>
                         {Object.entries(CROP_NAMES).map(([code, name]) => (
                             <option key={code} value={code}>{name}</option>
                         ))}
@@ -64,16 +245,6 @@ export function FieldEditor({ field, onSave, onClose, onOpenAgrochemistry }) {
                     />
                 </label>
 
-                {/*<label>*/}
-                {/*    Тип почвы:*/}
-                {/*    <select name="soilType" value={formData.soilType} onChange={handleChange}>*/}
-                {/*        <option value="">— выберите —</option>*/}
-                {/*        {Object.entries(SOIL_TYPES).map(([code, name]) => (*/}
-                {/*            <option key={code} value={code}>{name}</option>*/}
-                {/*        ))}*/}
-                {/*    </select>*/}
-                {/*</label>*/}
-
                 <label>
                     Тип почвы:
                     <select
@@ -81,7 +252,7 @@ export function FieldEditor({ field, onSave, onClose, onOpenAgrochemistry }) {
                         value={formData.soilType || ''}
                         onChange={handleChange}
                     >
-                        <option value="">— выберите —</option>
+                        <option value="">--- выберите ---</option>
                         {Object.entries(getSoilsByGroup()).map(([groupId, soils]) => (
                             <optgroup key={groupId} label={SOIL_GROUPS[groupId]}>
                                 {soils.map(soil => (
@@ -92,6 +263,39 @@ export function FieldEditor({ field, onSave, onClose, onOpenAgrochemistry }) {
                             </optgroup>
                         ))}
                     </select>
+                </label>
+
+                {/* Только выбор субъекта, регион скрыт */}
+                <label>
+                    Субъект РФ:
+                    <select
+                        name="subjectId"
+                        value={formData.subjectId || ''}
+                        onChange={handleChange}
+                    >
+                        <option value="">--- выберите субъект ---</option>
+                        {REGION_SUBJECTS.map(s => (
+                            <option key={s.id} value={s.id}>
+                                {s.name}
+                                {detectedSubjectId === s.id && isAutoSubjectSet && ' ✓ (авто)'}
+                            </option>
+                        ))}
+                    </select>
+                    {formData.subjectId && (
+                        <small style={{ color: '#666', display: 'block', marginTop: '4px' }}>
+                            📍 Регион: {regionName || 'определяется автоматически'}
+                        </small>
+                    )}
+                    {/*{isAutoSubjectSet && (*/}
+                    {/*    <small style={{ color: '#2e7d32', display: 'block', marginTop: '4px' }}>*/}
+                    {/*        ✅ Субъект определён автоматически по координатам*/}
+                    {/*    </small>*/}
+                    {/*)}*/}
+                    {showSubjectMismatch && (
+                        <small style={{ color: '#ff9800', display: 'block', marginTop: '4px' }}>
+                            ⚠️ Выбранный субъект отличается от автоматически определённого
+                        </small>
+                    )}
                 </label>
 
                 <label>
@@ -105,22 +309,22 @@ export function FieldEditor({ field, onSave, onClose, onOpenAgrochemistry }) {
                 </label>
 
                 <div className="modal-actions">
-                    <button type="submit" className="btn-primary">Сохранить</button>
-                    <button type="button" onClick={onClose} className="btn-secondary">Отмена</button>
+                    <button
+                        type="submit"
+                        className="btn-primary"
+                        disabled={isDetecting}
+                    >
+                        {isDetecting ? '⏳ Определение региона...' : 'Сохранить'}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="btn-secondary"
+                        disabled={isDetecting}
+                    >
+                        Отмена
+                    </button>
                 </div>
-
-                {/*{onOpenAgrochemistry && (*/}
-                {/*    <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #eee' }}>*/}
-                {/*        <button*/}
-                {/*            type="button"*/}
-                {/*            onClick={onOpenAgrochemistry}*/}
-                {/*            className="btn-secondary"*/}
-                {/*            style={{ width: '100%' }}*/}
-                {/*        >*/}
-                {/*            🧪 Агрохимический состав почвы*/}
-                {/*        </button>*/}
-                {/*    </div>*/}
-                {/*)}*/}
             </form>
         </div>
     );

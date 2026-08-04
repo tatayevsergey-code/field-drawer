@@ -1,24 +1,8 @@
 // utils/regionLimits.js
 
-import { SOIL_GROUPS } from './soils';
+// import { SOIL_GROUPS } from './soils';
 
-/**
- * Справочник регионов (зон)
- */
-export const REGIONS = [
-    { id: 1, name: 'Северный' },
-    { id: 2, name: 'Северо-Западный' },
-    { id: 3, name: 'Центральный' },
-    { id: 4, name: 'Волго-Вятский' },
-    { id: 5, name: 'Центрально-Черноземный' },
-    { id: 6, name: 'Северо-Кавказский' },
-    { id: 7, name: 'Средневолжский' },
-    { id: 8, name: 'Нижневолжский' },
-    { id: 9, name: 'Уральский' },
-    { id: 10, name: 'Западно-Сибирский' },
-    { id: 11, name: 'Восточно-Сибирский' },
-    { id: 12, name: 'Дальневосточный' }
-];
+import { REGIONS } from './regions';
 
 /**
  * Карта регионов для быстрого поиска
