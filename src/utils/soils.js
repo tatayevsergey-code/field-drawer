@@ -46,3 +46,18 @@ export function getSoilsByGroup() {
     });
     return grouped;
 }
+
+/**
+ * Получить ID группы почвы по ID конкретного типа почвы
+ * @param {number|string} soilTypeId - ID типа почвы из SOIL_TYPES
+ * @returns {number|null} ID группы почвы из SOIL_GROUPS
+ */
+export function getSoilGroupByTypeId(soilTypeId) {
+    if (!soilTypeId) return null;
+
+    const soil = soilMap.get(Number(soilTypeId));
+
+    if (!soil) return null;
+
+    return soil.groupId ?? null;
+}

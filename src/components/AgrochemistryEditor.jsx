@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { AGRO_PARAMS } from '../utils/agrochemistry';
 import { validateParamValue } from '../utils/regionLimits';
 import { REGIONS } from '../utils/regions'; // ← импортируем из regions.js
-import { getSoilGroupName } from '../utils/soils';
+import { getSoilName, getSoilGroupName, getSoilGroupByTypeId } from '../utils/soils';
 
 export function AgrochemistryEditor({ field, onSave, onClose }) {
     const plots = field.plots || [{ coordinates: field.coordinates }];
@@ -41,7 +41,7 @@ export function AgrochemistryEditor({ field, onSave, onClose }) {
 
     // ─── Получаем группу почв из данных поля ──────────────────────
     const soilTypeId = field.data?.soilType;
-    const soilGroupId = soilTypeId ? Number(soilTypeId) : null;
+    const soilGroupId = getSoilGroupByTypeId(soilTypeId);
 
     // ─── Проверка значения ──────────────────────────────────────────
     const getValidationStatus = (paramId, value) => {
@@ -122,13 +122,18 @@ export function AgrochemistryEditor({ field, onSave, onClose }) {
                     fontSize: '13px',
                     color: '#555'
                 }}>
-                    <span>🌱 Тип почвы: {soilGroupId ? getSoilGroupName(soilGroupId) : 'не указан'}</span>
+                    <span>
+                            🌱 Тип почвы:{' '}
+                        {soilTypeId
+                            ? `${getSoilName(soilTypeId)} (${soilGroupId ? getSoilGroupName(soilGroupId) : 'группа не определена'})`
+                            : 'не указан'}
+                    </span>
                 </div>
 
                 {/* Селектор региона */}
                 <div className="region-selector" style={{ marginBottom: '12px' }}>
                     <label style={{ fontSize: '13px', color: '#555', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span>🌍 Регион:</span>
+                        <span>Регион:</span>
                         <select
                             value={selectedRegionId}
                             onChange={(e) => setSelectedRegionId(e.target.value)}
@@ -179,10 +184,12 @@ export function AgrochemistryEditor({ field, onSave, onClose }) {
                             if (validation && validation.max !== null) {
                                 if (!validation.isValid) {
                                     statusColor = '#d32f2f';
-                                    statusText = `⚠️ > ${validation.max}`;
+                                    // statusText = `⚠️ > ${validation.max}`;
+                                    statusText = `⚠️`;
                                 } else {
                                     statusColor = '#2e7d32';
-                                    statusText = `✅ ≤ ${validation.max}`;
+                                    // statusText = `✅ ≤ ${validation.max}`;
+                                    statusText = `✅`;
                                 }
                             }
 

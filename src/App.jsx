@@ -176,23 +176,31 @@ function MapFocusController({ focusTrigger }) {
     useEffect(() => {
         if (!focusTrigger) return;
 
-        const { field } = focusTrigger;
+        const { field, force = false } = focusTrigger;
+
         let bounds = null;
 
         field.plots.forEach(plot => {
             if (plot.coordinates && plot.coordinates.length > 0) {
                 plot.coordinates.forEach(([lat, lng]) => {
                     const latLng = L.latLng(lat, lng);
-                    if (!bounds) bounds = L.latLngBounds(latLng, latLng);
-                    else bounds.extend(latLng);
+
+                    if (!bounds) {
+                        bounds = L.latLngBounds(latLng, latLng);
+                    } else {
+                        bounds.extend(latLng);
+                    }
                 });
             }
         });
 
-        // Центрируем только если поле полностью вне видимой области
-        if (bounds && !map.getBounds().intersects(bounds)) {
+        if (!bounds) return;
+
+        const isOutsideVisibleArea = !map.getBounds().intersects(bounds);
+
+        if (force || isOutsideVisibleArea) {
             map.flyToBounds(bounds, {
-                padding: [50, 50],
+                padding: [60, 60],
                 maxZoom: 16,
                 duration: 0.6
             });
@@ -555,7 +563,7 @@ export default function App() {
                                     <div className="field-meta" onClick={() => handleFieldClick(f)}>
                                         {f.data.cropType && `${getCropName(f.data.cropType)} · `}
                                         {getTotalArea(f).toFixed(2)} га
-                                        {f.data.regionId && ` · ${f.data.regionId}`}
+                                        {/*{f.data.regionId && ` · ${f.data.regionId}`}*/}
                                     </div>
                                     <div className="field-actions">
                                         {f.plots.length === 1 && (
@@ -579,6 +587,11 @@ export default function App() {
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 setAgrochemField(f);
+                                                setFocusTrigger({
+                                                    field: f,
+                                                    ts: Date.now(),
+                                                    force: true
+                                                });
                                             }}
                                             title="Агрохимический состав почвы"
                                         >
