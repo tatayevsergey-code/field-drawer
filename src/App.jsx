@@ -1,4 +1,3 @@
-// App.jsx
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { MapContainer, TileLayer, Polygon, Polyline, CircleMarker, Tooltip, useMap, useMapEvents } from 'react-leaflet';
 import { FieldEditor } from './components/FieldEditor';
@@ -17,6 +16,7 @@ import './App.css';
 import { AgrochemistryEditor } from './components/AgrochemistryEditor';
 import { parseImportedField } from './utils/importFieldJson';
 import { getAgroParam } from './utils/agrochemistry';
+import { useAuth } from './auth/AuthContext';
 
 // ─── Подложки ───────────────────────────────────────────────────────
 const BASEMAPS = {
@@ -233,7 +233,7 @@ export default function App() {
     const [focusTrigger, setFocusTrigger] = useState(null);
     const [agrochemField, setAgrochemField] = useState(null);
     const [mapZoom, setMapZoom] = useState(13);
-    // const [isDetectingRegion, setIsDetectingRegion] = useState(false);
+    const { user, logout } = useAuth();
 
     const {
         projects,
@@ -257,7 +257,6 @@ export default function App() {
     const fields = activeProject?.fields || [];
 
     // ─── Создание поля ──────────────────────────────────────────────
-// В App.jsx обновляем handleCreate
     const handleCreate = useCallback((coords, area) => {
         // console.log('📝 Создание нового поля');
         setMode('view');
@@ -504,12 +503,6 @@ export default function App() {
                             />
                         </div>
 
-                        {/*isDetectingRegion && (
-                            <div className="hint" style={{ background: '#e3f2fd', borderColor: '#1976d2', color: '#1565c0' }}>
-                                🔍 Определение региона по координатам...
-                            </div>
-                        )*/}
-
                         {mode === 'draw' && (
                             <div className="hint">
                                 Кликайте по карте для вершин. Двойной клик — завершить.
@@ -541,9 +534,9 @@ export default function App() {
                         <div className="stats">
                             <span>Полей: {fields.length}</span>
                             <span>
-                Общая площадь: {' '}
+                                Общая площадь: {' '}
                                 {fields.reduce((s, f) => s + getTotalArea(f), 0).toFixed(2)} га
-              </span>
+                            </span>
                         </div>
 
                         <h3>Список полей</h3>
@@ -617,8 +610,40 @@ export default function App() {
                     </div>
                 )}
 
-                <div style={{ fontSize: '11px', color: '#999', marginTop: 'auto' }}>
-                    © OpenStreetMap contributors · © Esri
+                <div className="sidebar-bottom">
+                    {user && (
+                        <div className="auth-panel">
+                            <div className="auth-user" title={user.email}>
+                                <span className="auth-avatar" aria-hidden="true">
+                                  <svg
+                                      width="16"
+                                      height="16"
+                                      viewBox="0 0 24 24"
+                                      fill="currentColor"
+                                  >
+                                    <path d="M12 12c2.761 0 5-2.239 5-5s-2.239-5-5-5-5 2.239-5 5 2.239 5 5 5zm0 2c-3.314 0-9 1.657-9 5v1c0 .552.448 1 1 1h16c.552 0 1-.448 1-1v-1c0-3.343-5.686-5-9-5z" />
+                                  </svg>
+                                </span>
+
+                                <span className="auth-name">
+                                    {user.fullName || user.email || 'Пользователь'}
+                                </span>
+                            </div>
+
+                            <button
+                                type="button"
+                                className="btn-secondary auth-logout"
+                                onClick={logout}
+                                title="Выйти из системы"
+                            >
+                                Выйти
+                            </button>
+                        </div>
+                    )}
+
+                    <div className="sidebar-copyright">
+                        © OpenStreetMap contributors · © Esri
+                    </div>
                 </div>
             </aside>
 

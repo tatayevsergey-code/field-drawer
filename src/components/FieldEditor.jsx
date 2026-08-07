@@ -1,4 +1,3 @@
-// components/FieldEditor.jsx
 import { useState, useEffect, useRef } from 'react';
 import { CROP_NAMES } from '../utils/crops';
 import { SOIL_GROUPS, getSoilsByGroup } from '../utils/soils';
@@ -41,14 +40,11 @@ export function FieldEditor({
 
         detectionStartedRef.current = true;
 
-        // console.log('🔍 Запуск автоопределения региона в FieldEditor');
         setIsDetecting(true);
         setDetectionError(null);
 
         detectRegionForField(field)
             .then(result => {
-                // console.log('📊 Результат определения региона:', result);
-
                 if (result) {
                     setDetectedRegionId(result.regionId);
                     setDetectedSubjectId(result.subjectId);
@@ -61,14 +57,11 @@ export function FieldEditor({
                         subjectId: result.subjectId || prev.subjectId
                     }));
 
-                    // console.log(`✅ Регион определён: ${result.regionId}, субъект: ${result.subjectId}`);
                 } else {
                     setDetectionError('Не удалось определить регион автоматически');
-                    // console.warn('⚠️ Регион не определён');
                 }
             })
             .catch(err => {
-                // console.error('❌ Ошибка определения региона:', err);
                 setDetectionError('Ошибка при определении региона');
             })
             .finally(() => {
@@ -89,13 +82,11 @@ export function FieldEditor({
             // Если пользователь выбрал субъект вручную (не совпадает с автоопределённым)
             if (detectedSubjectId && subjectId !== String(detectedSubjectId)) {
                 setIsAutoSubjectSet(false);
-                // console.log(`🔄 Пользователь выбрал другой субъект: ${subject.name}`);
             } else if (detectedSubjectId && subjectId === String(detectedSubjectId)) {
                 // Если совпадает с автоопределённым, считаем что это автоопределение
                 setIsAutoSubjectSet(true);
             }
 
-            // console.log(`🔄 Выбран субъект: ${subject.name}, регион: ${subject.regionId}`);
         } else {
             setFormData(prev => ({
                 ...prev,
@@ -118,7 +109,6 @@ export function FieldEditor({
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        // console.log('💾 Сохранение поля с данными:', formData);
         onSave(formData);
     };
 
@@ -286,11 +276,6 @@ export function FieldEditor({
                             📍 Регион: {regionName || 'определяется автоматически'}
                         </small>
                     )}
-                    {/*{isAutoSubjectSet && (*/}
-                    {/*    <small style={{ color: '#2e7d32', display: 'block', marginTop: '4px' }}>*/}
-                    {/*        ✅ Субъект определён автоматически по координатам*/}
-                    {/*    </small>*/}
-                    {/*)}*/}
                     {showSubjectMismatch && (
                         <small style={{ color: '#ff9800', display: 'block', marginTop: '4px' }}>
                             ⚠️ Выбранный субъект отличается от автоматически определённого

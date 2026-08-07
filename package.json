@@ -2,6 +2,7 @@
   "name": "field-drawer",
   "version": "0.1.0",
   "private": true,
+  "proxy": "http://localhost:8080",
   "dependencies": {
     "@geoman-io/leaflet-geoman-free": "^2.20.0",
     "@turf/helpers": "^7.3.5",

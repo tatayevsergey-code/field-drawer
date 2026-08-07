@@ -1,5 +1,3 @@
-// utils/regions.js
-
 /**
  * Справочник регионов (зон)
  */
@@ -166,17 +164,12 @@ export function findRegionByCode(code) {
     return null;
 }
 
-// utils/regions.js
-
-// ... существующий код ...
-
 /**
  * Найти регион по названию субъекта (улучшенная версия)
  */
 export function findRegionByName(name) {
     if (!name) return null;
     const nameLower = name.toLowerCase().trim();
-    // console.log(`🔍 Поиск региона по названию: "${nameLower}"`);
 
     // Специальные случаи
     const specialCases = {
@@ -192,7 +185,6 @@ export function findRegionByName(name) {
     // Проверяем специальные случаи
     for (const [key, regionId] of Object.entries(specialCases)) {
         if (nameLower.includes(key) || key.includes(nameLower)) {
-            // console.log(`✅ Найден специальный случай: "${key}" -> регион ${regionId}`);
             return regionId;
         }
     }
@@ -202,11 +194,9 @@ export function findRegionByName(name) {
         const subjectLower = subject.name.toLowerCase();
         // Проверяем вхождение
         if (subjectLower.includes(nameLower) || nameLower.includes(subjectLower)) {
-            // console.log(`✅ Найден субъект: "${subject.name}" -> регион ${subject.regionId}`);
             return subject.regionId;
         }
     }
 
-    // console.warn(`⚠️ Не найден регион для названия: "${name}"`);
     return null;
 }
