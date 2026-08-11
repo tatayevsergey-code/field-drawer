@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 import { useAuth } from '../../auth/AuthContext';
 import {
@@ -52,6 +52,8 @@ export default function AuthPage() {
     const [loading, setLoading] = useState(false);
     const [resetToken, setResetToken] = useState('');
 
+    const confirmStartedRef = useRef(false);
+
     // Поддержка ссылок из почты:
     // /?reset_token=...
     // /?confirm_token=...
@@ -62,6 +64,9 @@ export default function AuthPage() {
         const urlResetToken = params.get('reset_token');
 
         if (confirmToken) {
+            if (confirmStartedRef.current) return;   // ← уже запускали, не повторяем
+            confirmStartedRef.current = true;
+
             confirmEmail(confirmToken)
                 .then(() => {
                     setInfo('Email подтверждён. Теперь можно войти.');
