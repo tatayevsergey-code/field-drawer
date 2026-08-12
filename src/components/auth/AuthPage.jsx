@@ -110,9 +110,12 @@ export default function AuthPage() {
     };
 
     const validate = () => {
-        if (!form.email.trim()) {
-            setError('Введите email');
-            return false;
+        // email нужен только там, где он реально вводится
+        if (mode === 'login' || mode === 'register' || mode === 'forgot') {
+            if (!form.email.trim()) {
+                setError('Введите email');
+                return false;
+            }
         }
 
         if (mode === 'login' || mode === 'register' || mode === 'reset') {
