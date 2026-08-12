@@ -141,3 +141,15 @@ export async function confirmEmail(token) {
         auth: false,
     });
 }
+
+/**
+ * Повторная отправка письма подтверждения.
+ * POST /auth/resend-confirm
+ */
+export async function resendConfirmation(email) {
+    return request('/auth/resend-confirm', {
+        method: 'POST',
+        body: { email },
+        auth: false,
+    });
+}

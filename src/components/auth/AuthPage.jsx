@@ -5,6 +5,7 @@ import {
     forgotPassword,
     resetPassword,
     confirmEmail,
+    resendConfirmation
 } from '../../api/auth';
 
 import './Auth.css';
@@ -51,6 +52,7 @@ export default function AuthPage() {
     const [info, setInfo] = useState('');
     const [loading, setLoading] = useState(false);
     const [resetToken, setResetToken] = useState('');
+    const [errorCode, setErrorCode] = useState('');
 
     const confirmStartedRef = useRef(false);
 
@@ -90,6 +92,7 @@ export default function AuthPage() {
         setMode(nextMode);
         setError('');
         setInfo('');
+        setErrorCode('');
         setForm((prev) => ({
             ...prev,
             password: '',
@@ -230,6 +233,28 @@ export default function AuthPage() {
             }
         } catch (err) {
             // setError(err.message || 'Ошибка запроса');
+            const code = err?.data?.error_code || err?.data?.errorCode || '';
+            setErrorCode(code);
+            setError(getErrorMessage(err));
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleResend = async () => {
+        setError('');
+        setInfo('');
+        setLoading(true);
+
+        try {
+            const result = await resendConfirmation(form.email.trim());
+
+            setInfo(
+                result?.message ||
+                'Письмо с подтверждением отправлено повторно. Проверьте почту.'
+            );
+            setErrorCode('');
+        } catch (err) {
             setError(getErrorMessage(err));
         } finally {
             setLoading(false);
@@ -247,6 +272,43 @@ export default function AuthPage() {
                 {mode === 'reset' && <div className="auth-title">Новый пароль</div>}
 
                 {error && <div className="auth-error">{error}</div>}
+
+                {errorCode === 'EMAIL_NOT_CONFIRMED' && (
+                    <div
+                        style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            gap: '8px',
+                            background: '#fff8e1',
+                            border: '1px solid #ffb300',
+                            color: '#8d6e00',
+                            borderRadius: '6px',
+                            padding: '10px',
+                            fontSize: '13px',
+                            marginBottom: '12px',
+                        }}
+                    >
+                        <span>Письмо не пришло?</span>
+                        <button
+                            type="button"
+                            onClick={handleResend}
+                            disabled={loading}
+                            style={{
+                                background: '#1976d2',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '4px',
+                                padding: '6px 10px',
+                                cursor: 'pointer',
+                                whiteSpace: 'nowrap',
+                            }}
+                        >
+                            Отправить повторно
+                        </button>
+                    </div>
+                )}
+
                 {info && <div className="auth-info">{info}</div>}
 
                 {(mode === 'login' || mode === 'register' || mode === 'forgot') && (
