@@ -690,7 +690,6 @@ export default function App() {
                     {fields.map(f => (
                         f.plots.map((plot, plotIdx) => (
                             <Polygon
-                                // key={`${f.id}-${plotIdx}`}
                                 key={`${f.id}-${plotIdx}-${plot.coordinates.length}-${plot.area}`}
                                 positions={plot.coordinates}
                                 pathOptions={{
