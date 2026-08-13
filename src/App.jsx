@@ -17,6 +17,7 @@ import { AgrochemistryEditor } from './components/AgrochemistryEditor';
 import { parseImportedField } from './utils/importFieldJson';
 import { getAgroParam } from './utils/agrochemistry';
 import { useAuth } from './auth/AuthContext';
+import { UserManager } from './components/admin/UserManager';
 
 // ─── Подложки ───────────────────────────────────────────────────────
 const BASEMAPS = {
@@ -234,6 +235,7 @@ export default function App() {
     const [agrochemField, setAgrochemField] = useState(null);
     const [mapZoom, setMapZoom] = useState(13);
     const { user, logout } = useAuth();
+    const [showUserManager, setShowUserManager] = useState(false);
 
     const {
         projects,
@@ -451,6 +453,47 @@ export default function App() {
     const getTotalArea = (field) => {
         return field.plots.reduce((sum, p) => sum + (parseFloat(p.area) || 0), 0);
     };
+
+    // ─── Admin view: no map, no fields, only user management ──────
+    if (user?.role === 'admin') {
+        return (
+            <div className="admin-app" style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+                <header style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '12px 24px',
+                    background: '#fff',
+                    borderBottom: '1px solid #ddd',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                }}>
+                    <div style={{ fontWeight: 600, fontSize: '16px' }}>🌾 АгроПО-M — Панель администратора</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        <span style={{ color: '#555', fontSize: '14px' }}>
+                            {user.fullName || user.email}
+                        </span>
+                        <button
+                            type="button"
+                            className="btn-primary"
+                            onClick={logout}
+                            style={{
+                                padding: '6px 18px',
+                                fontSize: '14px',
+                                borderRadius: '6px',
+                                border: 'none',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Выйти
+                        </button>
+                    </div>
+                </header>
+                <main style={{ flex: 1, padding: '24px', overflow: 'auto', background: '#f5f5f5' }}>
+                    <UserManager currentUser={user} inline />
+                </main>
+            </div>
+        );
+    }
 
     return (
         <div className="app">
@@ -790,6 +833,13 @@ export default function App() {
                     field={agrochemField}
                     onSave={(data) => updateField(agrochemField.id, data)}
                     onClose={() => setAgrochemField(null)}
+                />
+            )}
+
+            {showUserManager && (
+                <UserManager
+                    currentUser={user}
+                    onClose={() => setShowUserManager(false)}
                 />
             )}
         </div>
