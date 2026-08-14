@@ -18,6 +18,7 @@ import { parseImportedField } from './utils/importFieldJson';
 import { getAgroParam } from './utils/agrochemistry';
 import { useAuth } from './auth/AuthContext';
 import { UserManager } from './components/admin/UserManager';
+import { useReferences } from './context/ReferenceContext';
 
 // ─── Подложки ───────────────────────────────────────────────────────
 const BASEMAPS = {
@@ -236,6 +237,20 @@ export default function App() {
     const [mapZoom, setMapZoom] = useState(13);
     const { user, logout } = useAuth();
     const [showUserManager, setShowUserManager] = useState(false);
+
+    const refs = useReferences();
+
+    // Отладка: выводим справочники в консоль
+    useEffect(() => {
+        console.log('[ReferenceContext] Справочники загружены:');
+        console.log('  zones:', refs.zones?.length, refs.zones);
+        console.log('  subjects:', refs.subjects?.length, refs.subjects);
+        console.log('  soil_groups:', refs.soil_groups?.length, refs.soil_groups);
+        console.log('  soils:', refs.soils?.length, refs.soils);
+        console.log('  crops:', refs.crops?.length, refs.crops);
+        console.log('  agro_params:', refs.agro_params?.length, refs.agro_params);
+        console.log('  limits:', refs.limits?.length, refs.limits);
+    }, [refs]);
 
     const {
         projects,

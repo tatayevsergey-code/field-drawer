@@ -1,6 +1,7 @@
 import { useAuth } from './AuthContext';
 import AuthPage from '../components/auth/AuthPage';
 import App from '../App';
+import { ReferenceProvider } from '../context/ReferenceContext';
 
 export function AuthGate() {
     const { initializing, isAuthenticated } = useAuth();
@@ -19,5 +20,10 @@ export function AuthGate() {
         return <AuthPage />;
     }
 
-    return <App />;
+    // return <App />;
+    return (
+        <ReferenceProvider>   {/* ← оберните App */}
+            <App />
+        </ReferenceProvider>
+    );
 }
