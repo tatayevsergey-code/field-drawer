@@ -1,7 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { CROP_NAMES } from '../utils/crops';
-import { SOIL_GROUPS, getSoilsByGroup } from '../utils/soils';
-import { REGION_SUBJECTS, getRegionName } from '../utils/regions';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { useReferences } from '../context/ReferenceContext';
 import { detectRegionForField } from '../utils/regionDetector';
 
 export function FieldEditor({
@@ -12,6 +10,8 @@ export function FieldEditor({
                                 detectedSubjectId: initialDetectedSubjectId,
                                 isDetecting: initialIsDetecting = false
                             }) {
+    const refs = useReferences();
+
     const [formData, setFormData] = useState(field?.data || {
         name: '',
         cropType: '',
@@ -27,36 +27,39 @@ export function FieldEditor({
     const [isDetecting, setIsDetecting] = useState(initialIsDetecting || false);
     const [detectionError, setDetectionError] = useState(null);
     const [isAutoDetected, setIsAutoDetected] = useState(false);
-    const [isAutoSubjectSet, setIsAutoSubjectSet] = useState(false); // ← флаг, что субъект установлен автоматически
-
+    const [isAutoSubjectSet, setIsAutoSubjectSet] = useState(false);
     const detectionStartedRef = useRef(false);
+
+    // Группировка почв по group_id для select с optgroup
+    const soilsByGroup = useMemo(() => {
+        const grouped = {};
+        refs.soils.forEach(soil => {
+            if (!grouped[soil.group_id]) grouped[soil.group_id] = [];
+            grouped[soil.group_id].push(soil);
+        });
+        return grouped;
+    }, [refs.soils]);
 
     // Автоопределение региона при открытии формы (только один раз)
     useEffect(() => {
         if (detectedRegionId || detectionStartedRef.current) return;
-
         const coords = field?.coordinates || field?.plots?.[0]?.coordinates;
         if (!coords || coords.length === 0) return;
-
         detectionStartedRef.current = true;
-
         setIsDetecting(true);
         setDetectionError(null);
-
-        detectRegionForField(field)
+        detectRegionForField(field,refs)
             .then(result => {
                 if (result) {
                     setDetectedRegionId(result.regionId);
                     setDetectedSubjectId(result.subjectId);
                     setIsAutoDetected(true);
-                    setIsAutoSubjectSet(true); // ← помечаем, что субъект установлен автоматически
-
+                    setIsAutoSubjectSet(true);
                     setFormData(prev => ({
                         ...prev,
                         regionId: result.regionId,
                         subjectId: result.subjectId || prev.subjectId
                     }));
-
                 } else {
                     setDetectionError('Не удалось определить регион автоматически');
                 }
@@ -71,22 +74,20 @@ export function FieldEditor({
 
     // При выборе субъекта автоматически устанавливаем регион
     const handleSubjectChange = (subjectId) => {
-        const subject = REGION_SUBJECTS.find(s => s.id === Number(subjectId));
+        const subject = refs.subjects.find(s => s.id === Number(subjectId));
         if (subject) {
             setFormData(prev => ({
                 ...prev,
                 subjectId: subjectId,
-                regionId: subject.regionId
+                regionId: subject.zone_id // В БД это id_zone, в proto это zone_id
             }));
 
             // Если пользователь выбрал субъект вручную (не совпадает с автоопределённым)
             if (detectedSubjectId && subjectId !== String(detectedSubjectId)) {
                 setIsAutoSubjectSet(false);
             } else if (detectedSubjectId && subjectId === String(detectedSubjectId)) {
-                // Если совпадает с автоопределённым, считаем что это автоопределение
                 setIsAutoSubjectSet(true);
             }
-
         } else {
             setFormData(prev => ({
                 ...prev,
@@ -99,7 +100,6 @@ export function FieldEditor({
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-
         if (name === 'subjectId') {
             handleSubjectChange(value);
         } else {
@@ -112,8 +112,13 @@ export function FieldEditor({
         onSave(formData);
     };
 
-    // Находим название региона для отображения
-    const regionName = formData.regionId ? getRegionName(formData.regionId) : null;
+    // Находим название региона для отображения через ReferenceContext
+    const regionName = formData.regionId ? refs.getRegionName(formData.regionId) : null;
+
+    // Находим название автоопределённого субъекта
+    const detectedSubjectName = detectedSubjectId
+        ? refs.subjects.find(s => s.id === Number(detectedSubjectId))?.name
+        : null;
 
     // Проверяем, совпадает ли выбранный субъект с автоматически определённым
     const isSubjectMatched = detectedSubjectId && formData.subjectId === String(detectedSubjectId);
@@ -175,7 +180,7 @@ export function FieldEditor({
                             </div>
                             {detectedSubjectId && isAutoSubjectSet && (
                                 <div style={{ fontSize: '12px', opacity: 0.8 }}>
-                                    Субъект: {REGION_SUBJECTS.find(s => s.id === detectedSubjectId)?.name || 'не определён'}
+                                    Субъект: {detectedSubjectName || 'не определён'}
                                 </div>
                             )}
                         </div>
@@ -217,8 +222,8 @@ export function FieldEditor({
                     Культура:
                     <select name="cropType" value={formData.cropType} onChange={handleChange}>
                         <option value="">--- выберите ---</option>
-                        {Object.entries(CROP_NAMES).map(([code, name]) => (
-                            <option key={code} value={code}>{name}</option>
+                        {refs.crops.map(crop => (
+                            <option key={crop.id} value={crop.id}>{crop.name}</option>
                         ))}
                     </select>
                 </label>
@@ -243,9 +248,9 @@ export function FieldEditor({
                         onChange={handleChange}
                     >
                         <option value="">--- выберите ---</option>
-                        {Object.entries(getSoilsByGroup()).map(([groupId, soils]) => (
-                            <optgroup key={groupId} label={SOIL_GROUPS[groupId]}>
-                                {soils.map(soil => (
+                        {refs.soil_groups.map(group => (
+                            <optgroup key={group.id} label={group.name}>
+                                {(soilsByGroup[group.id] || []).map(soil => (
                                     <option key={soil.id} value={soil.id}>
                                         {soil.name}
                                     </option>
@@ -264,7 +269,7 @@ export function FieldEditor({
                         onChange={handleChange}
                     >
                         <option value="">--- выберите субъект ---</option>
-                        {REGION_SUBJECTS.map(s => (
+                        {refs.subjects.map(s => (
                             <option key={s.id} value={s.id}>
                                 {s.name}
                                 {detectedSubjectId === s.id && isAutoSubjectSet && ' ✓ (авто)'}

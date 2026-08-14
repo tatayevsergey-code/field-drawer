@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { AGRO_PARAMS } from '../utils/agrochemistry';
-import { validateParamValue } from '../utils/regionLimits';
-import { REGIONS } from '../utils/regions'; // ← импортируем из regions.js
-import { getSoilName, getSoilGroupName, getSoilGroupByTypeId } from '../utils/soils';
+import { useReferences } from '../context/ReferenceContext';
 
 export function AgrochemistryEditor({ field, onSave, onClose }) {
+    const refs = useReferences();  // ← получаем справочники из контекста
+
     const plots = field.plots || [{ coordinates: field.coordinates }];
     const hasMultiplePlots = plots.length > 1;
 
@@ -41,14 +40,14 @@ export function AgrochemistryEditor({ field, onSave, onClose }) {
 
     // ─── Получаем группу почв из данных поля ──────────────────────
     const soilTypeId = field.data?.soilType;
-    const soilGroupId = getSoilGroupByTypeId(soilTypeId);
+    const soilGroupId = refs.getSoilGroupByTypeId(soilTypeId);
 
     // ─── Проверка значения ──────────────────────────────────────────
     const getValidationStatus = (paramId, value) => {
         if (!selectedRegionId || value === undefined || value === null || value === '') {
             return null;
         }
-        return validateParamValue(
+        return refs.validateParamValue(
             paramId,
             Number(selectedRegionId),
             Number(value),
@@ -125,7 +124,7 @@ export function AgrochemistryEditor({ field, onSave, onClose }) {
                     <span>
                             🌱 Тип почвы:{' '}
                         {soilTypeId
-                            ? `${getSoilName(soilTypeId)} (${soilGroupId ? getSoilGroupName(soilGroupId) : 'группа не определена'})`
+                            ? `${refs.getSoilName(soilTypeId)} (${soilGroupId ? refs.getSoilGroupName(soilGroupId) : 'группа не определена'})`
                             : 'не указан'}
                     </span>
                 </div>
@@ -140,7 +139,7 @@ export function AgrochemistryEditor({ field, onSave, onClose }) {
                             style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #ccc' }}
                         >
                             <option value="">--- выберите регион ---</option>
-                            {REGIONS.map(r => (
+                            {refs.zones.map(r => (
                                 <option key={r.id} value={r.id}>{r.name}</option>
                             ))}
                         </select>
@@ -175,7 +174,7 @@ export function AgrochemistryEditor({ field, onSave, onClose }) {
                         </tr>
                         </thead>
                         <tbody>
-                        {AGRO_PARAMS.map(param => {
+                        {refs.agro_params.map(param => {
                             const value = currentSample.values[param.id];
                             const validation = getValidationStatus(param.id, value);
 

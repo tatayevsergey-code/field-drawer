@@ -5,9 +5,7 @@ import { ProjectManager } from './components/ProjectManager';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { useProjects } from './hooks/useProjects';
 import { calculateArea, calculateTotalArea } from './utils/geo';
-import { getCropName } from './utils/crops';
 import { splitPolygonByLine } from './utils/polygonSplit';
-import { findRegionByName } from './utils/regions';
 import L from 'leaflet';
 import '@geoman-io/leaflet-geoman-free';
 import '@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css';
@@ -15,7 +13,6 @@ import 'leaflet/dist/leaflet.css';
 import './App.css';
 import { AgrochemistryEditor } from './components/AgrochemistryEditor';
 import { parseImportedField } from './utils/importFieldJson';
-import { getAgroParam } from './utils/agrochemistry';
 import { useAuth } from './auth/AuthContext';
 import { UserManager } from './components/admin/UserManager';
 import { useReferences } from './context/ReferenceContext';
@@ -240,18 +237,6 @@ export default function App() {
 
     const refs = useReferences();
 
-    // Отладка: выводим справочники в консоль
-    useEffect(() => {
-        console.log('[ReferenceContext] Справочники загружены:');
-        console.log('  zones:', refs.zones?.length, refs.zones);
-        console.log('  subjects:', refs.subjects?.length, refs.subjects);
-        console.log('  soil_groups:', refs.soil_groups?.length, refs.soil_groups);
-        console.log('  soils:', refs.soils?.length, refs.soils);
-        console.log('  crops:', refs.crops?.length, refs.crops);
-        console.log('  agro_params:', refs.agro_params?.length, refs.agro_params);
-        console.log('  limits:', refs.limits?.length, refs.limits);
-    }, [refs]);
-
     const {
         projects,
         activeProjectId,
@@ -328,11 +313,11 @@ export default function App() {
         reader.onload = async (event) => {
             try {
                 const json = JSON.parse(event.target.result);
-                const { coordinates, data } = parseImportedField(json);
+                const { coordinates, data } = parseImportedField(json,refs);
 
                 // Если в JSON есть country_region, пробуем найти регион
                 if (!data.regionId && data.countryRegion) {
-                    const regionId = findRegionByName(data.countryRegion.full_name || data.countryRegion.name);
+                    const regionId = refs.findRegionByName(data.countryRegion.full_name || data.countryRegion.name);
                     if (regionId) {
                         data.regionId = regionId;
                     }
@@ -612,7 +597,7 @@ export default function App() {
                                         {f.plots.length > 1 && <span className="plot-count"> ({f.plots.length} уч.)</span>}
                                     </div>
                                     <div className="field-meta" onClick={() => handleFieldClick(f)}>
-                                        {f.data.cropType && `${getCropName(f.data.cropType)} · `}
+                                        {f.data.cropType && `${refs.getCropName(f.data.cropType)} · `}
                                         {getTotalArea(f).toFixed(2)} га
                                         {/*{f.data.regionId && ` · ${f.data.regionId}`}*/}
                                     </div>
@@ -770,7 +755,7 @@ export default function App() {
                                     >
                                         <span>{f.data.name || 'Без названия'}</span>
                                         <br />
-                                        <small>{getCropName(f.data.cropType)} · {getTotalArea(f).toFixed(2)} га</small>
+                                        <small>{refs.getCropName(f.data.cropType)} · {getTotalArea(f).toFixed(2)} га</small>
                                     </Tooltip>
                                 )}
 
@@ -790,7 +775,7 @@ export default function App() {
                                             );
                                             if (!sample?.values) return null;
                                             return Object.entries(sample.values).map(([paramId, val]) => {
-                                                const param = getAgroParam(paramId);
+                                                const param = refs.getAgroParam(paramId);
                                                 if (!param) return null;
                                                 return (
                                                     <div key={paramId} className="plot-label-param">
