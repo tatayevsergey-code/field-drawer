@@ -1,6 +1,15 @@
 import { useState } from 'react';
 import { useReferences } from '../context/ReferenceContext';
 
+const PRIMARY_BTN = {
+    background: '#1976d2',
+    color: '#fff',
+    border: 'none',
+    borderRadius: 6,
+    padding: '8px 16px',
+    cursor: 'pointer',
+};
+
 export function AgrochemistryEditor({ field, onSave, onClose }) {
     const refs = useReferences();  // ← получаем справочники из контекста
 
@@ -229,7 +238,7 @@ export function AgrochemistryEditor({ field, onSave, onClose }) {
                 </div>
 
                 <div className="modal-actions">
-                    <button type="button" onClick={handleSave} className="btn-primary">
+                    <button type="button" onClick={handleSave} className="btn-primary" style={PRIMARY_BTN}>
                         Сохранить
                     </button>
                     <button type="button" onClick={onClose} className="btn-secondary">

@@ -16,6 +16,8 @@ import { parseImportedField } from './utils/importFieldJson';
 import { useAuth } from './auth/AuthContext';
 import { UserManager } from './components/admin/UserManager';
 import { useReferences } from './context/ReferenceContext';
+import { DiffGridEditor } from './components/DiffGridEditor';
+import { buildDiffGrid, buildDiffGridCells } from './utils/diffGrid';
 
 // ─── Подложки ───────────────────────────────────────────────────────
 const BASEMAPS = {
@@ -234,6 +236,9 @@ export default function App() {
     const [mapZoom, setMapZoom] = useState(13);
     const { user, logout } = useAuth();
     const [showUserManager, setShowUserManager] = useState(false);
+    const [diffGridField, setDiffGridField] = useState(null);     // поле, для которого открыт диалог
+    const [diffGridPreview, setDiffGridPreview] = useState(null); // превью: { fieldId, cellSize, lines }
+    const [diffGrids, setDiffGrids] = useState({});               // применённые сетки: { [fieldId]: {…params, lines} }
 
     const refs = useReferences();
 
@@ -448,6 +453,65 @@ export default function App() {
         }
     };
 
+    // ─── Сетка дифпосева ──────────────────────────────────────────
+    // ─── Сетка дифпосева ──────────────────────────────────────────
+    const handleDiffOpen = (field) => {
+        setDiffGridField(field);
+        setDiffGridPreview(null);
+        setFocusTrigger({ field, ts: Date.now(), force: true });
+    };
+
+    const handleDiffPreview = (params) => {
+        if (!diffGridField) return;
+        const coords = (diffGridField.plots || []).flatMap(pl => pl.coordinates || []);
+        const grid = buildDiffGrid(coords, params);
+        setDiffGridPreview(grid ? { kind: 'lines', lines: grid.lines } : null);
+    };
+
+    // «Сформировать сетку» — строим обрезанные по контуру ячейки и показываем их.
+// Окно НЕ закрывается, диалог сам заблокирует поля и кнопку.
+    const handleDiffForm = (params) => {
+        if (!diffGridField) return;
+        const plots = (diffGridField.plots || []).map(pl => pl.coordinates);
+        const grid = buildDiffGridCells(plots, params);
+        setDiffGridPreview(grid
+            ? { kind: 'cells', cells: grid.cells, cellSize: grid.cellSize, params }
+            : null);
+    };
+
+    // «Сбросить» — удаляем сохранённую сетку, возвращаемся в режим редактирования
+    const handleDiffReset = () => {
+        setDiffGridPreview(null);
+        if (diffGridField) {
+            setDiffGrids(prev => {
+                if (!(diffGridField.id in prev)) return prev;
+                const next = { ...prev };
+                delete next[diffGridField.id];
+                return next;
+            });
+        }
+    };
+
+    // «Применить сетку» — сохраняем результат и закрываем окно
+    const handleDiffApply = (params) => {
+        if (!diffGridField || !diffGridPreview || diffGridPreview.kind !== 'cells') return;
+        setDiffGrids(prev => ({
+            ...prev,
+            [diffGridField.id]: {
+                params,
+                cellSize: diffGridPreview.cellSize,
+                cells: diffGridPreview.cells,
+            },
+        }));
+        setDiffGridPreview(null);
+        setDiffGridField(null);   // ← закрываем окно только здесь
+    };
+
+    const handleDiffClose = () => {
+        setDiffGridPreview(null);
+        setDiffGridField(null);
+    };
+
     const currentBasemap = BASEMAPS[basemap];
 
     const getTotalArea = (field) => {
@@ -634,6 +698,16 @@ export default function App() {
                                             🧪
                                         </button>
                                         <button
+                                            className="btn-agrochem"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDiffOpen(f);
+                                            }}
+                                            title="Сетка дифпосева"
+                                        >
+                                            ▦
+                                        </button>
+                                        <button
                                             className="btn-delete"
                                             onClick={() => handleDeleteClick(f)}
                                             title="Удалить"
@@ -790,6 +864,37 @@ export default function App() {
                         ))
                     ))}
 
+                    {/* Живое превью: пунктирные линии (режим edit) */}
+                    {diffGridPreview?.kind === 'lines' && diffGridPreview.lines.map((line, i) => (
+                        <Polyline
+                            key={`dgp-${i}`}
+                            positions={line}
+                            interactive={false}
+                            pathOptions={{ color: '#1565c0', weight: 1, opacity: 0.8, dashArray: '4,4' }}
+                        />
+                    ))}
+
+                    {/* Сформированная сетка (обрезанные ячейки) после «Сформировать» ▼▼▼ */}
+                    {diffGridPreview?.kind === 'cells' && diffGridPreview.cells.map((cellPoly, i) => (
+                        <Polygon
+                            key={`dgf-${i}`}
+                            positions={cellPoly}
+                            interactive={false}
+                            pathOptions={{ color: '#5e35b1', weight: 1.5, fillColor: '#7e57c2', fillOpacity: 0.1 }}
+                        />
+                    ))}
+
+                    {/* Сохранённая сетка поля, для которого открыто окно (режим locked) */}
+                    {diffGridField && diffGrids[diffGridField.id] && !diffGridPreview &&
+                        diffGrids[diffGridField.id].cells.map((cellPoly, i) => (
+                            <Polygon
+                                key={`dg-saved-${diffGridField.id}-${i}`}
+                                positions={cellPoly}
+                                interactive={false}
+                                pathOptions={{ color: '#5e35b1', weight: 1.5, fillColor: '#7e57c2', fillOpacity: 0.1 }}
+                            />
+                        ))}
+
                     {mode === 'split' && splitPoints.map((p, i) => (
                         <CircleMarker
                             key={`split-${i}`}
@@ -840,6 +945,17 @@ export default function App() {
                 <UserManager
                     currentUser={user}
                     onClose={() => setShowUserManager(false)}
+                />
+            )}
+
+            {diffGridField && (
+                <DiffGridEditor
+                    existing={diffGrids[diffGridField.id] || null}
+                    onPreview={handleDiffPreview}
+                    onForm={handleDiffForm}
+                    onApply={handleDiffApply}
+                    onReset={handleDiffReset}
+                    onClose={handleDiffClose}
                 />
             )}
         </div>
