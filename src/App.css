@@ -811,3 +811,8 @@ body {
     font-size: 11px;
     color: #999;
 }
+
+.pwd-mask {
+    -webkit-text-security: disc;
+    text-security: disc;
+}

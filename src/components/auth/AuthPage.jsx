@@ -266,7 +266,7 @@ export default function AuthPage() {
 
     return (
         <div className="auth-page">
-            <form className="auth-card" onSubmit={handleSubmit}>
+            <form className="auth-card" onSubmit={handleSubmit} autoComplete="off">
                 <div className="auth-logo">🌾 АгроПО-M</div>
 
                 {mode === 'login' && <div className="auth-title">Вход</div>}
@@ -356,7 +356,12 @@ export default function AuthPage() {
                     </>
                 )}
 
-                {(mode === 'login' || mode === 'register' || mode === 'reset') && (
+                {/* Приманки для менеджеров паролей */}
+                {/*<input type="text"     name="username" style={{ position:'absolute', opacity:0, pointerEvents:'none' }} tabIndex={-1} readOnly />*/}
+                {/*<input type="password" name="password" style={{ position:'absolute', opacity:0, pointerEvents:'none' }} tabIndex={-1} readOnly />*/}
+
+                {/* === ЛОГИН: обычный password, автозаполнение работает === */}
+                {mode === 'login' && (
                     <div className="auth-field">
                         <label>Пароль</label>
                         <input
@@ -365,23 +370,45 @@ export default function AuthPage() {
                             value={form.password}
                             onChange={handleChange}
                             placeholder="••••••••"
-                            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                            autoComplete="current-password"
+                            key="login-pwd"
                         />
                     </div>
                 )}
 
+                {/* === РЕГИСТРАЦИЯ / СБРОС: текст с маской, автозаполнения нет === */}
                 {(mode === 'register' || mode === 'reset') && (
-                    <div className="auth-field">
-                        <label>Подтверждение пароля</label>
-                        <input
-                            type="password"
-                            name="confirmPassword"
-                            value={form.confirmPassword}
-                            onChange={handleChange}
-                            placeholder="••••••••"
-                            autoComplete="new-password"
-                        />
-                    </div>
+                    <>
+                        <div className="auth-field">
+                            <label>Пароль</label>
+                            <input
+                                type="text"
+                                name="password"
+                                value={form.password}
+                                onChange={handleChange}
+                                placeholder="••••••••"
+                                autoComplete="new-password"
+                                data-lpignore="true"
+                                className="pwd-mask"
+                                key="reg-pwd"
+                            />
+                        </div>
+
+                        <div className="auth-field">
+                            <label>Подтверждение пароля</label>
+                            <input
+                                type="text"
+                                name="confirmPassword"
+                                value={form.confirmPassword}
+                                onChange={handleChange}
+                                placeholder="••••••••"
+                                autoComplete="new-password"
+                                data-lpignore="true"
+                                className="pwd-mask"
+                                key="reg-confirm"
+                            />
+                        </div>
+                    </>
                 )}
 
                 <div className="auth-actions">
