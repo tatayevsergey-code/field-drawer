@@ -18,6 +18,7 @@ import { UserManager } from './components/admin/UserManager';
 import { useReferences } from './context/ReferenceContext';
 import { DiffGridEditor } from './components/DiffGridEditor';
 import { buildDiffGrid, buildDiffGridCells } from './utils/diffGrid';
+import { getDiffGrid, saveDiffGrid, deleteDiffGrid } from './api/projects';
 
 // ─── Подложки ───────────────────────────────────────────────────────
 const BASEMAPS = {
@@ -454,35 +455,86 @@ export default function App() {
     };
 
     // ─── Сетка дифпосева ──────────────────────────────────────────
-    // ─── Сетка дифпосева ──────────────────────────────────────────
-    const handleDiffOpen = (field) => {
+    // ─── Открытие окна: загрузка сетки с сервера ─────────────────
+    const handleDiffOpen = async (field) => {
         setDiffGridField(field);
         setDiffGridPreview(null);
         setFocusTrigger({ field, ts: Date.now(), force: true });
+
+        // В текущей сессии уже загружено — используем без запроса
+        if (diffGrids[field.id]) return;
+
+        try {
+            const data = await getDiffGrid(field.id);
+            console.log('[handleDiffOpen] response:', data);   // ← диагностика
+
+            // ВАЖНО: grid_present, а не has_grid!
+            if (data?.success && data.grid_present && data.grid) {
+                const g = data.grid;
+                const params = {
+                    direction:    Number(g.direction ?? 0),
+                    seederWidth:  Number(g.seeder_width ?? 6),
+                    multiplicity: Number(g.multiplicity ?? 5),
+                    offsetX:      Number(g.offset_x ?? 0),
+                    offsetY:      Number(g.offset_y ?? 0),
+                };
+                // Пересчитываем ячейки по контуру поля
+                const plots = (field.plots || []).map(pl => pl.coordinates);
+                const grid = buildDiffGridCells(plots, params);
+                console.log('[handleDiffOpen] rebuilt cells:', grid?.cells?.length);  // ← диагностика
+
+                setDiffGrids(prev => ({
+                    ...prev,
+                    [field.id]: {
+                        params,
+                        cellSize: grid?.cellSize ?? 0,
+                        cells: grid?.cells ?? [],
+                    },
+                }));
+            }
+        } catch (e) {
+            console.error('[handleDiffOpen] error:', e);
+        }
     };
 
     const handleDiffPreview = (params) => {
-        if (!diffGridField) return;
+        if (!diffGridField || !params) {
+            setDiffGridPreview(null);
+            return;
+        }
         const coords = (diffGridField.plots || []).flatMap(pl => pl.coordinates || []);
         const grid = buildDiffGrid(coords, params);
         setDiffGridPreview(grid ? { kind: 'lines', lines: grid.lines } : null);
     };
 
     // «Сформировать сетку» — строим обрезанные по контуру ячейки и показываем их.
-// Окно НЕ закрывается, диалог сам заблокирует поля и кнопку.
+    // Окно НЕ закрывается, диалог сам заблокирует поля и кнопку.
     const handleDiffForm = (params) => {
+        console.log('[handleDiffForm] diffGridField:', diffGridField);
+        console.log('[handleDiffForm] plots:', diffGridField?.plots);
         if (!diffGridField) return;
+
         const plots = (diffGridField.plots || []).map(pl => pl.coordinates);
+        console.log('[handleDiffForm] coords plots:', plots);
+
         const grid = buildDiffGridCells(plots, params);
+        console.log('[handleDiffForm] grid:', grid);
+
         setDiffGridPreview(grid
             ? { kind: 'cells', cells: grid.cells, cellSize: grid.cellSize, params }
             : null);
     };
 
     // «Сбросить» — удаляем сохранённую сетку, возвращаемся в режим редактирования
-    const handleDiffReset = () => {
+    // ─── удаляем на сервере и в state ────────────────
+    const handleDiffReset = async () => {
         setDiffGridPreview(null);
         if (diffGridField) {
+            try {
+                await deleteDiffGrid(diffGridField.id);
+            } catch (e) {
+                console.error('[handleDiffReset] delete error:', e);
+            }
             setDiffGrids(prev => {
                 if (!(diffGridField.id in prev)) return prev;
                 const next = { ...prev };
@@ -492,9 +544,25 @@ export default function App() {
         }
     };
 
-    // «Применить сетку» — сохраняем результат и закрываем окно
-    const handleDiffApply = (params) => {
-        if (!diffGridField || !diffGridPreview || diffGridPreview.kind !== 'cells') return;
+    // ─── «Применить» — сохраняем на сервер и закрываем окно ───────
+    const handleDiffApply = async (params) => {
+        console.log('[handleDiffApply] diffGridPreview:', diffGridPreview);
+        if (!diffGridField || !diffGridPreview || diffGridPreview.kind !== 'cells') {
+            console.warn('[handleDiffApply] выход: нет diffGridPreview kind=cells');
+            return;
+        };
+
+        try {
+            const result = await saveDiffGrid(diffGridField.id, params);
+            if (!result?.success) {
+                alert('Не удалось сохранить сетку: ' + (result?.error || 'неизвестная ошибка'));
+                return;
+            }
+        } catch (e) {
+            alert('Ошибка сохранения сетки: ' + e.message);
+            return;
+        }
+
         setDiffGrids(prev => ({
             ...prev,
             [diffGridField.id]: {
@@ -504,7 +572,7 @@ export default function App() {
             },
         }));
         setDiffGridPreview(null);
-        setDiffGridField(null);   // ← закрываем окно только здесь
+        setDiffGridField(null);   // закрываем окно только после успешного сохранения
     };
 
     const handleDiffClose = () => {

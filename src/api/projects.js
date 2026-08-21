@@ -56,3 +56,25 @@ export async function deleteField(id) {
         auth: true,
     });
 }
+
+export async function getDiffGrid(fieldId) {
+    return request(`/fields/${fieldId}/diff-grid`, {
+        method: 'GET',
+        auth: true,
+    });
+}
+
+export async function saveDiffGrid(fieldId, params) {
+    return request(`/fields/${fieldId}/diff-grid`, {
+        method: 'PUT',
+        body: params,
+        auth: true,
+    });
+}
+
+export async function deleteDiffGrid(fieldId) {
+    return request(`/fields/${fieldId}/diff-grid`, {
+        method: 'DELETE',
+        auth: true,
+    });
+}

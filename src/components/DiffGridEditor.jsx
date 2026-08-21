@@ -52,11 +52,28 @@ export function DiffGridEditor({ existing, onPreview, onForm, onApply, onReset, 
     const locked  = saved || formed;   // поля и «Сформировать» заблокированы
     const editing = !locked;
 
+    // Если сетка догрузилась с сервера после открытия окна — подставляем сохранённые параметры
+    useEffect(() => {
+        if (existing?.params) {
+            setDirection(String(existing.params.direction ?? 0));
+            setSeederWidth(String(existing.params.seederWidth ?? 6));
+            setMultiplicity(String(existing.params.multiplicity ?? 5));
+            setOffsetX(String(existing.params.offsetX ?? 0));
+            setOffsetY(String(existing.params.offsetY ?? 0));
+        }
+    }, [existing]);
+
     // Живое превью — только в режиме редактирования
     useEffect(() => {
-        if (!editing) return;
+        if (!editing) {
+            // Просмотр сохранённой сетки: убираем живое превью,
+            // чтобы на карте были видны сохранённые ячейки.
+            // ВАЖНО: сразу после «Сформировать» (formed === true) превью не трогаем!
+            if (saved && !formed) onPreview(null);
+            return;
+        }
         onPreview(params);
-    }, [editing, direction, seederWidth, multiplicity, offsetX, offsetY]);
+    }, [editing, saved, formed, direction, seederWidth, multiplicity, offsetX, offsetY]);
 
     const cell = params.seederWidth * params.multiplicity;
     const inputStyle = { opacity: locked ? 0.55 : 1 };
