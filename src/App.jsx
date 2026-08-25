@@ -19,6 +19,7 @@ import { useReferences } from './context/ReferenceContext';
 import { DiffGridEditor } from './components/DiffGridEditor';
 import { buildDiffGrid, buildDiffGridCells } from './utils/diffGrid';
 import { getDiffGrid, saveDiffGrid, deleteDiffGrid } from './api/projects';
+import { SeedingRateEditor } from './components/SeedingRateEditor';
 
 // ─── Подложки ───────────────────────────────────────────────────────
 const BASEMAPS = {
@@ -80,7 +81,7 @@ function GeomanController({ isDrawing, editingFieldId, fields, onCreate, getCurr
                 continueLine: 'Кликните, чтобы продолжить рисование',
                 finishPoly: 'Кликните на первую точку, чтобы завершить',
                 placeMarker: 'Кликните, чтобы поставить точку',
-                removeLastVertex: 'Кликните на последнюю точку, чтобы удалить её',
+                removeLastVertex: 'Кликните на последней точке, чтобы удалить её',
             }
         }, 'en');
         // ───────────────────────────────────────────────────────────
@@ -114,7 +115,6 @@ function GeomanController({ isDrawing, editingFieldId, fields, onCreate, getCurr
             map.removeLayer(layerRef.current);
             layerRef.current = null;
         }
-
         if (editingFieldId) {
             const field = fields.find(f => f.id === editingFieldId);
             if (field && field.plots && field.plots.length > 0) {
@@ -126,7 +126,6 @@ function GeomanController({ isDrawing, editingFieldId, fields, onCreate, getCurr
                         fillOpacity: 0.2,
                         weight: 2
                     }).addTo(map);
-
                     layer._fieldId = field.id;
                     layer.pm.enable({ allowSelfIntersection: false });
                     layerRef.current = layer;
@@ -174,19 +173,14 @@ function MapEventHandler({ mode, splitField, splitPoints, onSplitClick, onMouseM
 
 function MapFocusController({ focusTrigger }) {
     const map = useMap();
-
     useEffect(() => {
         if (!focusTrigger) return;
-
         const { field, force = false } = focusTrigger;
-
         let bounds = null;
-
         field.plots.forEach(plot => {
             if (plot.coordinates && plot.coordinates.length > 0) {
                 plot.coordinates.forEach(([lat, lng]) => {
                     const latLng = L.latLng(lat, lng);
-
                     if (!bounds) {
                         bounds = L.latLngBounds(latLng, latLng);
                     } else {
@@ -195,11 +189,8 @@ function MapFocusController({ focusTrigger }) {
                 });
             }
         });
-
         if (!bounds) return;
-
         const isOutsideVisibleArea = !map.getBounds().intersects(bounds);
-
         if (force || isOutsideVisibleArea) {
             map.flyToBounds(bounds, {
                 padding: [60, 60],
@@ -208,7 +199,6 @@ function MapFocusController({ focusTrigger }) {
             });
         }
     }, [focusTrigger, map]);
-
     return null;
 }
 
@@ -238,10 +228,10 @@ export default function App() {
     const { user, logout } = useAuth();
     const [showUserManager, setShowUserManager] = useState(false);
     const [diffGridField, setDiffGridField] = useState(null);     // поле, для которого открыт диалог
-    const [diffGridPreview, setDiffGridPreview] = useState(null); // превью: { fieldId, cellSize, lines }
-    const [diffGrids, setDiffGrids] = useState({});               // применённые сетки: { [fieldId]: {…params, lines} }
-
+    const [diffGridPreview, setDiffGridPreview] = useState(null); // превью: линии или ячейки
+    const [diffGrids, setDiffGrids] = useState({});               // применённые сетки: { [fieldId]: {params, cellSize, cells} }
     const refs = useReferences();
+    const [seedingField, setSeedingField] = useState(null);
 
     const {
         projects,
@@ -266,13 +256,11 @@ export default function App() {
 
     // ─── Создание поля ──────────────────────────────────────────────
     const handleCreate = useCallback((coords, area) => {
-        // console.log('📝 Создание нового поля');
         setMode('view');
         const tempField = {
             coordinates: coords,
             data: { area: area.toFixed(2) }
         };
-
         setModalField({
             ...tempField,
             detectedRegionId: null,
@@ -314,13 +302,11 @@ export default function App() {
     const handleImportFile = (e) => {
         const file = e.target.files[0];
         if (!file) return;
-
         const reader = new FileReader();
         reader.onload = async (event) => {
             try {
                 const json = JSON.parse(event.target.result);
-                const { coordinates, data } = parseImportedField(json,refs);
-
+                const { coordinates, data } = parseImportedField(json, refs);
                 // Если в JSON есть country_region, пробуем найти регион
                 if (!data.regionId && data.countryRegion) {
                     const regionId = refs.findRegionByName(data.countryRegion.full_name || data.countryRegion.name);
@@ -328,11 +314,8 @@ export default function App() {
                         data.regionId = regionId;
                     }
                 }
-
                 // Если всё ещё нет regionId, определяем в фоне
                 if (!data.regionId) {
-                    const tempField = { coordinates, data };
-                    // Открываем форму с флагом определения
                     setModalField({
                         coordinates,
                         data,
@@ -342,7 +325,6 @@ export default function App() {
                     });
                     return;
                 }
-
                 if (data.agrochemistry?.gridCells?.length > 0) {
                     const plots = data.agrochemistry.gridCells.map(cell => ({
                         coordinates: cell.coordinates,
@@ -415,13 +397,10 @@ export default function App() {
 
     const handleSplitClick = (latlng) => {
         if (mode !== 'split' || !splitField) return;
-
         const newPoints = [...splitPoints, [latlng.lat, latlng.lng]];
         setSplitPoints(newPoints);
-
         if (newPoints.length === 2) {
             const newPlots = [];
-
             splitField.plots.forEach(plot => {
                 const result = splitPolygonByLine(plot.coordinates, newPoints[0], newPoints[1]);
                 if (result && result.length >= 2) {
@@ -440,7 +419,6 @@ export default function App() {
                     newPlots.push(plot);
                 }
             });
-
             updateFieldPlots(splitField.id, newPlots);
             setSplitPoints([]);
             setSplitField(null);
@@ -455,7 +433,7 @@ export default function App() {
     };
 
     // ─── Сетка дифпосева ──────────────────────────────────────────
-    // ─── Открытие окна: загрузка сетки с сервера ─────────────────
+    // Открытие окна: загрузка сетки с сервера
     const handleDiffOpen = async (field) => {
         setDiffGridField(field);
         setDiffGridPreview(null);
@@ -466,9 +444,6 @@ export default function App() {
 
         try {
             const data = await getDiffGrid(field.id);
-            console.log('[handleDiffOpen] response:', data);   // ← диагностика
-
-            // ВАЖНО: grid_present, а не has_grid!
             if (data?.success && data.grid_present && data.grid) {
                 const g = data.grid;
                 const params = {
@@ -481,8 +456,6 @@ export default function App() {
                 // Пересчитываем ячейки по контуру поля
                 const plots = (field.plots || []).map(pl => pl.coordinates);
                 const grid = buildDiffGridCells(plots, params);
-                console.log('[handleDiffOpen] rebuilt cells:', grid?.cells?.length);  // ← диагностика
-
                 setDiffGrids(prev => ({
                     ...prev,
                     [field.id]: {
@@ -508,25 +481,16 @@ export default function App() {
     };
 
     // «Сформировать сетку» — строим обрезанные по контуру ячейки и показываем их.
-    // Окно НЕ закрывается, диалог сам заблокирует поля и кнопку.
     const handleDiffForm = (params) => {
-        console.log('[handleDiffForm] diffGridField:', diffGridField);
-        console.log('[handleDiffForm] plots:', diffGridField?.plots);
         if (!diffGridField) return;
-
         const plots = (diffGridField.plots || []).map(pl => pl.coordinates);
-        console.log('[handleDiffForm] coords plots:', plots);
-
         const grid = buildDiffGridCells(plots, params);
-        console.log('[handleDiffForm] grid:', grid);
-
         setDiffGridPreview(grid
             ? { kind: 'cells', cells: grid.cells, cellSize: grid.cellSize, params }
             : null);
     };
 
-    // «Сбросить» — удаляем сохранённую сетку, возвращаемся в режим редактирования
-    // ─── удаляем на сервере и в state ────────────────
+    // «Сбросить» — удаляем сохранённую сетку на сервере и в state
     const handleDiffReset = async () => {
         setDiffGridPreview(null);
         if (diffGridField) {
@@ -544,14 +508,9 @@ export default function App() {
         }
     };
 
-    // ─── «Применить» — сохраняем на сервер и закрываем окно ───────
+    // «Применить» — сохраняем на сервер и закрываем окно
     const handleDiffApply = async (params) => {
-        console.log('[handleDiffApply] diffGridPreview:', diffGridPreview);
-        if (!diffGridField || !diffGridPreview || diffGridPreview.kind !== 'cells') {
-            console.warn('[handleDiffApply] выход: нет diffGridPreview kind=cells');
-            return;
-        };
-
+        if (!diffGridField || !diffGridPreview || diffGridPreview.kind !== 'cells') return;
         try {
             const result = await saveDiffGrid(diffGridField.id, params);
             if (!result?.success) {
@@ -562,7 +521,6 @@ export default function App() {
             alert('Ошибка сохранения сетки: ' + e.message);
             return;
         }
-
         setDiffGrids(prev => ({
             ...prev,
             [diffGridField.id]: {
@@ -601,9 +559,9 @@ export default function App() {
                 }}>
                     <div style={{ fontWeight: 600, fontSize: '16px' }}>🌾 АгроПО-M — Панель администратора</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                        <span style={{ color: '#555', fontSize: '14px' }}>
-                            {user.fullName || user.email}
-                        </span>
+            <span style={{ color: '#555', fontSize: '14px' }}>
+              {user.fullName || user.email}
+            </span>
                         <button
                             type="button"
                             className="btn-primary"
@@ -632,7 +590,6 @@ export default function App() {
             <aside className="sidebar">
                 <BasemapSelector current={basemap} onChange={setBasemap} />
                 <hr className="sidebar-divider" />
-
                 <ProjectManager
                     projects={projects}
                     activeProjectId={activeProjectId}
@@ -643,7 +600,6 @@ export default function App() {
                     onDelete={deleteProject}
                     onRename={renameProject}
                 />
-
                 {activeProject && (
                     <>
                         <hr className="sidebar-divider" />
@@ -677,13 +633,11 @@ export default function App() {
                                 style={{ display: 'none' }}
                             />
                         </div>
-
                         {mode === 'draw' && (
                             <div className="hint">
                                 Кликайте по карте для вершин. Двойной клик — завершить.
                             </div>
                         )}
-
                         {mode === 'edit' && editingFieldId && (
                             <div className="hint hint-edit">
                                 <span>Редактирование: перетаскивайте точки</span>
@@ -692,7 +646,6 @@ export default function App() {
                                 </button>
                             </div>
                         )}
-
                         {mode === 'split' && (
                             <div className="hint hint-split">
                                 {!splitField
@@ -705,15 +658,13 @@ export default function App() {
                                 </button>
                             </div>
                         )}
-
                         <div className="stats">
                             <span>Полей: {fields.length}</span>
                             <span>
-                                Общая площадь: {' '}
+                Общая площадь: {' '}
                                 {fields.reduce((s, f) => s + getTotalArea(f), 0).toFixed(2)} га
-                            </span>
+              </span>
                         </div>
-
                         <h3>Список полей</h3>
                         <div className="field-list">
                             {fields.length === 0 && (
@@ -724,16 +675,29 @@ export default function App() {
                                     key={f.id}
                                     className={`field-item ${editingFieldId === f.id ? 'active' : ''} ${splitField?.id === f.id ? 'split-active' : ''}`}
                                 >
-                                    <div className="field-name" onClick={() => handleFieldClick(f)}>
-                                        {f.data.name || 'Без названия'}
-                                        {f.plots.length > 1 && <span className="plot-count"> ({f.plots.length} уч.)</span>}
+                                    {/* ─── Блок 1: название, культура, площадь + удаление ─── */}
+                                    <div className="field-item-top">
+                                        <div className="field-item-info" onClick={() => handleFieldClick(f)}>
+                                            <div className="field-name">
+                                                {f.data.name || 'Без названия'}
+                                                {f.plots.length > 1 && <span className="plot-count"> ({f.plots.length} уч.)</span>}
+                                            </div>
+                                            <div className="field-meta">
+                                                {f.data.cropType && `${refs.getCropName(f.data.cropType)} · `}
+                                                {getTotalArea(f).toFixed(2)} га
+                                            </div>
+                                        </div>
+                                        <button
+                                            className="btn-delete"
+                                            onClick={() => handleDeleteClick(f)}
+                                            title="Удалить"
+                                        >
+                                            ✕
+                                        </button>
                                     </div>
-                                    <div className="field-meta" onClick={() => handleFieldClick(f)}>
-                                        {f.data.cropType && `${refs.getCropName(f.data.cropType)} · `}
-                                        {getTotalArea(f).toFixed(2)} га
-                                        {/*{f.data.regionId && ` · ${f.data.regionId}`}*/}
-                                    </div>
-                                    <div className="field-actions">
+
+                                    {/* ─── Блок 2: все действия ───────────────────────────── */}
+                                    <div className="field-actions-row">
                                         {f.plots.length === 1 && (
                                             <button
                                                 className="btn-edit-geo"
@@ -752,8 +716,7 @@ export default function App() {
                                         </button>
                                         <button
                                             className="btn-agrochem"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
+                                            onClick={() => {
                                                 setAgrochemField(f);
                                                 setFocusTrigger({
                                                     field: f,
@@ -767,20 +730,31 @@ export default function App() {
                                         </button>
                                         <button
                                             className="btn-agrochem"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleDiffOpen(f);
-                                            }}
+                                            onClick={() => handleDiffOpen(f)}
                                             title="Сетка дифпосева"
                                         >
                                             ▦
                                         </button>
                                         <button
-                                            className="btn-delete"
-                                            onClick={() => handleDeleteClick(f)}
-                                            title="Удалить"
+                                            className="btn-agrochem"
+                                            onClick={() => setSeedingField(f)}
+                                            title="Расчёт нормы высева"
                                         >
-                                            ✕
+                                            🌱
+                                        </button>
+                                        <button
+                                            className="btn-agrochem"
+                                            onClick={() => alert('Экспорт задания на посев — делаем в понедельник')}
+                                            title="Экспорт задания на посев"
+                                        >
+                                            📤
+                                        </button>
+                                        <button
+                                            className="btn-agrochem"
+                                            onClick={() => alert('Импорт результатов посева — делаем в понедельник')}
+                                            title="Импорт результатов посева"
+                                        >
+                                            📥
                                         </button>
                                     </div>
                                 </div>
@@ -788,33 +762,29 @@ export default function App() {
                         </div>
                     </>
                 )}
-
                 {!activeProject && (
                     <div className="hint">
                         Создайте проект или выберите существующий
                     </div>
                 )}
-
                 <div className="sidebar-bottom">
                     {user && (
                         <div className="auth-panel">
                             <div className="auth-user" title={user.email}>
-                                <span className="auth-avatar" aria-hidden="true">
-                                  <svg
-                                      width="16"
-                                      height="16"
-                                      viewBox="0 0 24 24"
-                                      fill="currentColor"
-                                  >
-                                    <path d="M12 12c2.761 0 5-2.239 5-5s-2.239-5-5-5-5 2.239-5 5 2.239 5 5 5zm0 2c-3.314 0-9 1.657-9 5v1c0 .552.448 1 1 1h16c.552 0 1-.448 1-1v-1c0-3.343-5.686-5-9-5z" />
-                                  </svg>
-                                </span>
-
+                <span className="auth-avatar" aria-hidden="true">
+                  <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                  >
+                    <path d="M12 12c2.761 0 5-2.239 5-5s-2.239-5-5-5-5 2.239-5 5 2.239 5 5 5zm0 2c-3.314 0-9 1.657-9 5v1c0 .552.448 1 1 1h16c.552 0 1-.448 1-1v-1c0-3.343-5.686-5-9-5z" />
+                  </svg>
+                </span>
                                 <span className="auth-name">
-                                    {user.fullName || user.email || 'Пользователь'}
-                                </span>
+                  {user.fullName || user.email || 'Пользователь'}
+                </span>
                             </div>
-
                             <button
                                 type="button"
                                 className="btn-secondary auth-logout"
@@ -825,13 +795,11 @@ export default function App() {
                             </button>
                         </div>
                     )}
-
                     <div className="sidebar-copyright">
                         © OpenStreetMap contributors · © Esri
                     </div>
                 </div>
             </aside>
-
             <main className="map-wrapper">
                 <MapContainer
                     center={[55.7558, 37.6173]}
@@ -844,7 +812,6 @@ export default function App() {
                         url={currentBasemap.url}
                         attribution={currentBasemap.attribution}
                     />
-
                     {currentBasemap.overlay && (
                         <TileLayer
                             key={currentBasemap.overlay.url}
@@ -852,10 +819,8 @@ export default function App() {
                             attribution={currentBasemap.overlay.attribution}
                         />
                     )}
-
                     <MapFocusController focusTrigger={focusTrigger} />
                     <ZoomTracker onZoomChange={setMapZoom} />
-
                     <MapEventHandler
                         mode={mode}
                         splitField={splitField}
@@ -863,7 +828,6 @@ export default function App() {
                         onSplitClick={handleSplitClick}
                         onMouseMove={handleMapMouseMove}
                     />
-
                     <GeomanController
                         isDrawing={mode === 'draw'}
                         editingFieldId={editingFieldId}
@@ -871,7 +835,6 @@ export default function App() {
                         onCreate={handleCreate}
                         getCurrentEdit={getCurrentEditRef}
                     />
-
                     {fields.map(f => (
                         f.plots.map((plot, plotIdx) => (
                             <Polygon
@@ -900,7 +863,6 @@ export default function App() {
                                         <small>{refs.getCropName(f.data.cropType)} · {getTotalArea(f).toFixed(2)} га</small>
                                     </Tooltip>
                                 )}
-
                                 {mapZoom >= 14 && (
                                     <Tooltip
                                         direction="center"
@@ -931,7 +893,6 @@ export default function App() {
                             </Polygon>
                         ))
                     ))}
-
                     {/* Живое превью: пунктирные линии (режим edit) */}
                     {diffGridPreview?.kind === 'lines' && diffGridPreview.lines.map((line, i) => (
                         <Polyline
@@ -941,8 +902,7 @@ export default function App() {
                             pathOptions={{ color: '#1565c0', weight: 1, opacity: 0.8, dashArray: '4,4' }}
                         />
                     ))}
-
-                    {/* Сформированная сетка (обрезанные ячейки) после «Сформировать» ▼▼▼ */}
+                    {/* Сформированная сетка (обрезанные ячейки) после «Сформировать» */}
                     {diffGridPreview?.kind === 'cells' && diffGridPreview.cells.map((cellPoly, i) => (
                         <Polygon
                             key={`dgf-${i}`}
@@ -951,7 +911,6 @@ export default function App() {
                             pathOptions={{ color: '#5e35b1', weight: 1.5, fillColor: '#7e57c2', fillOpacity: 0.1 }}
                         />
                     ))}
-
                     {/* Сохранённая сетка поля, для которого открыто окно (режим locked) */}
                     {diffGridField && diffGrids[diffGridField.id] && !diffGridPreview &&
                         diffGrids[diffGridField.id].cells.map((cellPoly, i) => (
@@ -962,7 +921,6 @@ export default function App() {
                                 pathOptions={{ color: '#5e35b1', weight: 1.5, fillColor: '#7e57c2', fillOpacity: 0.1 }}
                             />
                         ))}
-
                     {mode === 'split' && splitPoints.map((p, i) => (
                         <CircleMarker
                             key={`split-${i}`}
@@ -971,7 +929,6 @@ export default function App() {
                             pathOptions={{ color: '#d32f2f', fillColor: '#d32f2f', fillOpacity: 1 }}
                         />
                     ))}
-
                     {mode === 'split' && splitPoints.length === 1 && mousePos && (
                         <Polyline
                             positions={[splitPoints[0], mousePos]}
@@ -980,7 +937,6 @@ export default function App() {
                     )}
                 </MapContainer>
             </main>
-
             {modalField && (
                 <FieldEditor
                     field={modalField}
@@ -991,7 +947,6 @@ export default function App() {
                     isDetecting={modalField.isDetecting || false}
                 />
             )}
-
             {confirmDelete && (
                 <ConfirmDialog
                     title="Удаление поля"
@@ -1000,7 +955,6 @@ export default function App() {
                     onCancel={() => setConfirmDelete(null)}
                 />
             )}
-
             {agrochemField && (
                 <AgrochemistryEditor
                     field={agrochemField}
@@ -1008,14 +962,12 @@ export default function App() {
                     onClose={() => setAgrochemField(null)}
                 />
             )}
-
             {showUserManager && (
                 <UserManager
                     currentUser={user}
                     onClose={() => setShowUserManager(false)}
                 />
             )}
-
             {diffGridField && (
                 <DiffGridEditor
                     existing={diffGrids[diffGridField.id] || null}
@@ -1024,6 +976,18 @@ export default function App() {
                     onApply={handleDiffApply}
                     onReset={handleDiffReset}
                     onClose={handleDiffClose}
+                />
+            )}
+            {seedingField && (
+                <SeedingRateEditor
+                    field={seedingField}
+                    onApply={(res) => {
+                        console.log('[SeedingRate]', seedingField.id, res);
+                        // Пока только в консоль: персистентность и запись в сетку —
+                        // после утверждения методики (см. вопросы ниже).
+                        setSeedingField(null);
+                    }}
+                    onClose={() => setSeedingField(null)}
                 />
             )}
         </div>

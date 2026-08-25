@@ -143,6 +143,10 @@ export function ReferenceProvider({ children }) {
         getSoilGroupByTypeId: (soilTypeId) => getSoil(soilTypeId)?.group_id || null,
         // Культуры
         getCropName: (id) => refs.crops.find(c => c.id === Number(id))?.name || '—',
+
+        // Удобрения
+        getFertilizer: (id) => (refs.fertilizers || []).find(f => f.id === Number(id)),
+
         // Лимиты
         getParamMax,
         validateParamValue,

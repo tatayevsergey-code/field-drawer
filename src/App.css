@@ -816,3 +816,51 @@ body {
     -webkit-text-security: disc;
     text-security: disc;
 }
+
+/* ─── Карточка поля: две строки ───────────────────────────── */
+.field-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.field-item-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.field-item-info {
+    flex: 1;
+    min-width: 0;      /* длинные названия уходят в многоточие */
+    cursor: pointer;
+}
+
+.field-actions-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding-top: 6px;
+    border-top: 1px dashed #e0e0e0;
+}
+
+.field-actions-row button {
+    flex: 1 1 auto;    /* кнопки равномерно растягиваются по ширине */
+    min-width: 30px;
+}
+
+/* ─── Кнопки карточки поля: единый стиль ───────────────────── */
+.field-item button {
+    border: none;          /* заодно убираем рамки (если ещё не применили) */
+    border-radius: 6px;    /* единое скругление для всех кнопок */
+}
+
+.field-item button:focus,
+.field-item button:focus-visible {
+    outline: none;         /* без чёрной обводки после клика */
+}
+
+.field-item button:hover {
+    filter: brightness(0.95);
+}
