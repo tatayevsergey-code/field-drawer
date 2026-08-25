@@ -981,12 +981,7 @@ export default function App() {
             {seedingField && (
                 <SeedingRateEditor
                     field={seedingField}
-                    onApply={(res) => {
-                        console.log('[SeedingRate]', seedingField.id, res);
-                        // Пока только в консоль: персистентность и запись в сетку —
-                        // после утверждения методики (см. вопросы ниже).
-                        setSeedingField(null);
-                    }}
+                    onSave={(data) => updateField(seedingField.id, data)}
                     onClose={() => setSeedingField(null)}
                 />
             )}
