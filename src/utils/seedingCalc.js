@@ -1,6 +1,14 @@
+// src/utils/seedingCalc.js
+// Порт методики расчёта десктопного SeedCalculator / SeedingAlgorithm.
+
 export const SUBST = { P: 2, K: 3, HUMUS: 7, PH: 18 };
 
 const MIN_PH = 3.5, MIN_P = 2.0, MIN_K = 2.0, MIN_HUMUS = 0.5;
+
+// ─── Москва и СПб приравниваются к Московской и Ленинградской областям ───
+const BONITET_REGION_ALIAS = { 83: 18, 84: 9 };
+export const bonitetRegionFor = (subjectId) =>
+    BONITET_REGION_ALIAS[Number(subjectId)] || Number(subjectId);
 
 // SeedingAlgorithm::recomendedNorm
 function recommendedNorm(bonitetMax, kap, rec, offset, k = 0.1) {
@@ -18,7 +26,6 @@ function recommendedNorm(bonitetMax, kap, rec, offset, k = 0.1) {
 }
 
 // SeedingAlgorithm::seedingRate
-// seedFrequency/seedGermination передаются ДОЛЯМИ (0.98, 0.95)
 export function seedingRateKgHa(bonitetMax, recSeedRate, kap, purityFr, germinationFr, mass1000) {
     if (purityFr === 0 || germinationFr === 0) return 0;
     const norm = recommendedNorm(bonitetMax, kap, recSeedRate, 0.2, 0.1);
@@ -34,13 +41,15 @@ export function fertilizerRateKgHa(bonitetMax, recFertRate, kap, substancePercen
 
 const findMax = (refs, agrochemId, zoneId, soilGroupId) => {
     const row = (refs.limits || []).find(l =>
-        l.agrochem_id === agrochemId && l.zone_id === zoneId && l.soil_group_id === soilGroupId);
+        l.agrochem_id === Number(agrochemId) &&
+        l.zone_id === Number(zoneId) &&
+        l.soil_group_id === Number(soilGroupId));
     return row ? row.max_value : null;
 };
 
 /**
- * Расчёт нормы для одной ячейки (участка).
- * @param cellValues значения пробы участка: { [agrochemId]: value }
+ * Расчёт нормы для одной ячейки/участка.
+ * @param cellValues значения пробы { [agrochemId]: value }
  * @param p { cropId, soilId, soilGroupId, zoneId, subjectId,
  *            mass1000, purity, germination, percentageK, percentageP }
  */
@@ -55,7 +64,6 @@ export function calcCellNorm(cellValues, p, refs) {
         return { error: 'Нет нормативов/значений для расчёта баллов' };
     }
 
-    // Баллы (как в SeedCalculator::calculate)
     const scorePh    = ((pH - MIN_PH)     / (pHMax - MIN_PH)) * 100;
     const scoreGumus = ((G  - MIN_HUMUS)  / (GMax  - MIN_HUMUS)) * 100;
     const scoreK     = ((K * 0.1 - MIN_K) / (KMax  - MIN_K)) * 100;
@@ -70,7 +78,6 @@ export function calcCellNorm(cellValues, p, refs) {
         r.crop_id === p.cropId && r.soil_id === p.soilId && r.zone_id === p.zoneId);
     if (!seedRow) return { error: 'Не найдена норма высева (seed_rate)' };
 
-    // Лимитирующий элемент — меньший балл (sort + front в C++)
     const limiting = scoreK <= scoreP
         ? { id: SUBST.K, percent: p.percentageK }
         : { id: SUBST.P, percent: p.percentageP };
@@ -80,8 +87,9 @@ export function calcCellNorm(cellValues, p, refs) {
         r.agrochem_id === limiting.id && r.soil_group_id === p.soilGroupId);
     if (!fertRow) return { error: 'Не найдена норма удобрения (fert_rate)' };
 
+    // ← ВОТ ЗДЕСЬ работает алиас Москва→Моск.обл., СПб→Ленингр.обл.
     const bonitet = (refs.bonitet || []).find(b =>
-        b.region_id === p.subjectId && b.soil_id === p.soilId);
+        b.region_id === bonitetRegionFor(p.subjectId) && b.soil_id === p.soilId);
     if (!bonitet) return { error: 'Не найден бонитет (bonitet)' };
 
     return {

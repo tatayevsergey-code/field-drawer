@@ -44,6 +44,16 @@ const BASEMAPS = {
     }
 };
 
+// Центр полигона для якоря подписи
+function plotCenter(coords) {
+    if (!coords || coords.length === 0) return null;
+    const s = coords.reduce(
+        (acc, [lat, lng]) => ({ lat: acc.lat + lat, lng: acc.lng + lng }),
+        { lat: 0, lng: 0 }
+    );
+    return [s.lat / coords.length, s.lng / coords.length];
+}
+
 // ─── Geoman-контроллер ─────────────────────────────────────────────
 function GeomanController({ isDrawing, editingFieldId, fields, onCreate, getCurrentEdit }) {
     const map = useMap();
@@ -227,11 +237,12 @@ export default function App() {
     const [mapZoom, setMapZoom] = useState(13);
     const { user, logout } = useAuth();
     const [showUserManager, setShowUserManager] = useState(false);
-    const [diffGridField, setDiffGridField] = useState(null);     // поле, для которого открыт диалог
-    const [diffGridPreview, setDiffGridPreview] = useState(null); // превью: линии или ячейки
-    const [diffGrids, setDiffGrids] = useState({});               // применённые сетки: { [fieldId]: {params, cellSize, cells} }
+    const [diffGridField, setDiffGridField] = useState(null);               // поле, для которого открыт диалог
+    const [diffGridPreview, setDiffGridPreview] = useState(null);           // превью: линии или ячейки
+    const [diffGrids, setDiffGrids] = useState({});                     // применённые сетки: { [fieldId]: {params, cellSize, cells} }
     const refs = useReferences();
     const [seedingField, setSeedingField] = useState(null);
+    const [seedingResults, setSeedingResults] = useState({});           // { [fieldId]: result }
 
     const {
         projects,
@@ -621,9 +632,10 @@ export default function App() {
                             </button>
                             <button
                                 className="btn-primary"
+                                title="Импортировать поле в формате JSON"
                                 onClick={() => fileInputRef.current?.click()}
                             >
-                                📁 Импорт поля (JSON)
+                                📁 Импорт поля
                             </button>
                             <input
                                 type="file"
@@ -737,7 +749,10 @@ export default function App() {
                                         </button>
                                         <button
                                             className="btn-agrochem"
-                                            onClick={() => setSeedingField(f)}
+                                            onClick={() => {
+                                                setSeedingField(f);
+                                                setFocusTrigger({ field: f, ts: Date.now(), force: true });
+                                            }}
                                             title="Расчёт нормы высева"
                                         >
                                             🌱
@@ -877,22 +892,52 @@ export default function App() {
                                             const sample = samples.find(s =>
                                                 s.plotIndex !== undefined ? s.plotIndex === plotIdx : s.number === plotIdx + 1
                                             );
-                                            if (!sample?.values) return null;
-                                            return Object.entries(sample.values).map(([paramId, val]) => {
-                                                const param = refs.getAgroParam(paramId);
-                                                if (!param) return null;
-                                                return (
-                                                    <div key={paramId} className="plot-label-param">
-                                                        {param.unit} {val}
-                                                    </div>
-                                                );
-                                            });
+                                            // if (!sample?.values) return null;
+                                            // return Object.entries(sample.values).map(([paramId, val]) => {
+                                            //     const param = refs.getAgroParam(paramId);
+                                            //     if (!param) return null;
+                                            //     return (
+                                            //         <div key={paramId} className="plot-label-param">
+                                            //             {param.unit} {val}
+                                            //         </div>
+                                            //     );
+                                            // });
+                                            const p2o5 = sample?.values?.[2];   // ← только P2O5, как в десктопе
+                                            return p2o5 != null
+                                                ? <div className="plot-label-param">P2O5 {p2o5}</div>
+                                                : null;
                                         })()}
                                     </Tooltip>
                                 )}
                             </Polygon>
                         ))
                     ))}
+
+                    {/* ─── Подписи норм высева/внесения после расчёта ─── */}
+                    {fields.map(f => {
+                        const sr = seedingResults[f.id];
+                        if (!sr?.cells) return null;
+                        return f.plots.map((plot, idx) => {
+                            const cell = sr.cells.find(c => c.plotIndex === idx);
+                            const center = plotCenter(plot.coordinates);
+                            if (!cell || cell.seedingRate == null || !center) return null;
+                            return (
+                                <CircleMarker
+                                    key={`seeding-${f.id}-${idx}`}
+                                    center={center}
+                                    radius={0.1}
+                                    interactive={false}
+                                    pathOptions={{ opacity: 0, fillOpacity: 0 }}
+                                >
+                                    <Tooltip permanent direction="top" offset={[0, -6]} className="seeding-label">
+                                        <div>Nвыс: {Number(cell.seedingRate).toFixed(2)} кг/га</div>
+                                        <div>Nвн: {cell.fertilizationRate != null ? Number(cell.fertilizationRate).toFixed(2) : '—'} кг/га</div>
+                                    </Tooltip>
+                                </CircleMarker>
+                            );
+                        });
+                    })}
+
                     {/* Живое превью: пунктирные линии (режим edit) */}
                     {diffGridPreview?.kind === 'lines' && diffGridPreview.lines.map((line, i) => (
                         <Polyline
@@ -981,7 +1026,10 @@ export default function App() {
             {seedingField && (
                 <SeedingRateEditor
                     field={seedingField}
-                    onSave={(data) => updateField(seedingField.id, data)}
+                    onSave={(data) => {
+                        setSeedingResults(prev => ({ ...prev, [seedingField.id]: data.seeding }));
+                        updateField(seedingField.id, data);
+                    }}
                     onClose={() => setSeedingField(null)}
                 />
             )}

@@ -97,7 +97,7 @@ export function DiffGridEditor({ existing, onPreview, onForm, onApply, onReset, 
             }}
         >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <h3 style={{ margin: 0 }}>Создание сетки дифпосева</h3>
+                <h3 style={{ margin: 0 }}>▦ Создание сетки дифпосева</h3>
                 <button type="button" onClick={onClose}
                         style={{ border: 'none', background: 'none', fontSize: 16, cursor: 'pointer', color: '#888' }}>
                     ✕
@@ -105,7 +105,7 @@ export function DiffGridEditor({ existing, onPreview, onForm, onApply, onReset, 
             </div>
 
             <label>
-                Направление основного гона, гр
+                Направление основного гона, градусы
                 <input type="number" min="0" max="360" step="1" disabled={locked} style={inputStyle}
                        value={direction} onChange={e => setDirection(e.target.value)} />
             </label>
