@@ -78,3 +78,13 @@ export async function deleteDiffGrid(fieldId) {
         auth: true,
     });
 }
+
+export async function getSeeding(fieldId) {
+    return request(`/fields/${fieldId}/seeding`, { method: 'GET', auth: true });
+}
+export async function saveSeeding(fieldId, payload) {
+    return request(`/fields/${fieldId}/seeding`, { method: 'PUT', body: payload, auth: true });
+}
+export async function deleteSeeding(fieldId) {
+    return request(`/fields/${fieldId}/seeding`, { method: 'DELETE', auth: true });
+}

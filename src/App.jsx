@@ -18,8 +18,8 @@ import { UserManager } from './components/admin/UserManager';
 import { useReferences } from './context/ReferenceContext';
 import { DiffGridEditor } from './components/DiffGridEditor';
 import { buildDiffGrid, buildDiffGridCells } from './utils/diffGrid';
-import { getDiffGrid, saveDiffGrid, deleteDiffGrid } from './api/projects';
 import { SeedingRateEditor } from './components/SeedingRateEditor';
+import { getDiffGrid, saveDiffGrid, deleteDiffGrid, getSeeding, saveSeeding } from './api/projects';
 
 // ─── Подложки ───────────────────────────────────────────────────────
 const BASEMAPS = {
@@ -243,6 +243,7 @@ export default function App() {
     const refs = useReferences();
     const [seedingField, setSeedingField] = useState(null);
     const [seedingResults, setSeedingResults] = useState({});           // { [fieldId]: result }
+    const [seedingExisting, setSeedingExisting] = useState(null);           // расчёт из БД
 
     const {
         projects,
@@ -547,6 +548,21 @@ export default function App() {
     const handleDiffClose = () => {
         setDiffGridPreview(null);
         setDiffGridField(null);
+    };
+
+    // ─── Открытие окна: центрируем поле и тянем сохранённый расчёт с сервера ───
+    const handleSeedingOpen = async (field) => {
+        setSeedingField(field);
+        setSeedingExisting(null);
+        setFocusTrigger({ field, ts: Date.now(), force: true });
+        try {
+            const data = await getSeeding(field.id);
+            if (data?.success && data.present && data.calc) {
+                setSeedingExisting(data.calc);
+            }
+        } catch (e) {
+            console.error('[handleSeedingOpen] error:', e);
+        }
     };
 
     const currentBasemap = BASEMAPS[basemap];
@@ -1026,9 +1042,11 @@ export default function App() {
             {seedingField && (
                 <SeedingRateEditor
                     field={seedingField}
-                    onSave={(data) => {
-                        setSeedingResults(prev => ({ ...prev, [seedingField.id]: data.seeding }));
-                        updateField(seedingField.id, data);
+                    existing={seedingExisting}
+                    onSave={(payload) => {
+                        saveSeeding(seedingField.id, payload)
+                            .then(() => setSeedingField(null))
+                            .catch((e) => alert('Ошибка сохранения расчёта: ' + e.message));
                     }}
                     onClose={() => setSeedingField(null)}
                 />

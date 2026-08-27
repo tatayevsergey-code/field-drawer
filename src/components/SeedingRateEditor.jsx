@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useReferences } from '../context/ReferenceContext';
 import { calcCellNorm, calcSeedingParameters } from '../utils/seedingCalc';
 
@@ -8,42 +8,38 @@ const inp = {
 };
 const lbl = { display: 'block', marginBottom: 8, fontSize: 13 };
 const h4 = { margin: '14px 0 8px', fontSize: 14 };
+const cellStyle = { border: '1px solid #bbb', padding: '4px 6px', textAlign: 'center' };
+const thStyle = { ...cellStyle, background: '#e8e8e8' };
 
 const toNum = (v) => {
     const n = Number(v);
     return Number.isFinite(n) && n > 0 ? n : '';
 };
 
-export function SeedingRateEditor({ field, onSave, onClose }) {
+export function SeedingRateEditor({ field, existing, onSave, onClose }) {
     const refs = useReferences();
     const d = field?.data || {};
 
     // ─── Параметры семенного материала ───
-    const [cropId, setCropId]         = useState(toNum(d.cropType) || refs.crops[0]?.id || '');
-    const [mass1000, setMass1000]     = useState(40);
-    const [purity, setPurity]         = useState(98);
-    const [germination, setGermination] = useState(95);
+    const [cropId, setCropId]             = useState(toNum(d.cropType) || refs.crops[0]?.id || '');
+    const [mass1000, setMass1000]         = useState(40);
+    const [purity, setPurity]             = useState(98);
+    const [germination, setGermination]   = useState(95);
 
-    // ─── Параметры удобрений ───
-    const [manual, setManual]         = useState(false);
+    // ─── Параметры удобрения ───
+    const [manual, setManual]             = useState(false);
     const [fertilizerId, setFertilizerId] = useState('');
-    const [npk, setNpk]               = useState({ k: 16, p: 16, n: 16 });
+    const [npk, setNpk]                   = useState({ k: 16, p: 16, n: 16 });
 
-    // ─── Дополнительные параметры: СРАЗУ из структуры поля ───
-    const [soilId, setSoilId]         = useState(toNum(d.soilType));
-    // ─── Район: из поля; если пусто — восстанавливаем из импортированного country_region ───
-    const [subjectId, setSubjectId] = useState(() => {
-        // 1) прямой subjectId поля
+    // ─── Дополнительные параметры: сразу из структуры поля ───
+    const [soilId, setSoilId]             = useState(toNum(d.soilType));
+    const [subjectId, setSubjectId]       = useState(() => {
         const direct = toNum(d.subjectId);
         if (direct) return direct;
-
-        // 2) country_region.id — это id субъекта из справочника regions
         const cr = d.countryRegion;
         if (cr) {
             const byId = toNum(cr.id);
             if (byId && refs.getSubject(byId)) return byId;
-
-            // 3) фолбэк — точное совпадение названия
             if (cr.full_name) {
                 const byName = refs.subjects.find(
                     s => s.name.toLowerCase() === String(cr.full_name).toLowerCase()
@@ -53,7 +49,38 @@ export function SeedingRateEditor({ field, onSave, onClose }) {
         }
         return '';
     });
-    const [result, setResult]         = useState(null);
+
+    const [result, setResult] = useState(null);
+
+    // ─── Догрузился сохранённый расчёт с сервера — подставляем в форму и таблицу ───
+    useEffect(() => {
+        if (!existing) return;
+        if (existing.crop_id)     setCropId(existing.crop_id);
+        if (existing.soil_id)     setSoilId(existing.soil_id);
+        if (existing.subject_id)  setSubjectId(existing.subject_id);
+        if (existing.mass_1000)   setMass1000(existing.mass_1000);
+        if (existing.purity)      setPurity(existing.purity);
+        if (existing.germination) setGermination(existing.germination);
+        setManual(Boolean(existing.manual_fertilizer));
+        if (existing.fertilizer_id) setFertilizerId(String(existing.fertilizer_id));
+        setNpk({
+            k: existing.percentage_k ?? 16,
+            p: existing.percentage_p ?? 16,
+            n: existing.percentage_n ?? 16,
+        });
+        if (Array.isArray(existing.norms) && existing.norms.length > 0) {
+            setResult({
+                cells: existing.norms.map(n => ({
+                    plotIndex: n.plot_index,
+                    kap: n.kap,
+                    seedingRate: n.seeding_rate,
+                    fertilizationRate: n.fertilization_rate,
+                })),
+                rowWidth: existing.row_width ?? 0,
+                seedDepth: existing.seed_depth ?? 0,
+            });
+        }
+    }, [existing]);
 
     // Удобрения по алфавиту
     const fertilizers = useMemo(
@@ -87,19 +114,41 @@ export function SeedingRateEditor({ field, onSave, onClose }) {
         const p = buildParams();
         const cells = (field.plots || []).map((plot, idx) => {
             const sample = (d.agrochemistry?.samples || []).find(s =>
-                s.plotIndex !== undefined ? s.plotIndex === idx : s.number === idx + 1);
+                s.plotIndex !== undefined ? s.plotIndex === idx : s.number === idx + 1
+            );
             if (!sample?.values) return { plotIndex: idx, error: 'Нет пробы агрохимии' };
             return { plotIndex: idx, ...calcCellNorm(sample.values, p, refs) };
         });
         setResult({ cells, ...calcSeedingParameters(p, refs), params: p });
     };
 
+    // «Применить» — отдаём payload наверх (App сохраняет через gateway в БД)
     const handleApply = () => {
-        onSave({ ...d, seeding: result });
-        onClose();
+        const p = buildParams();
+        onSave({
+            cropId: p.cropId,
+            soilId: p.soilId,
+            subjectId: p.subjectId,
+            mass1000: p.mass1000,
+            purity: p.purity,
+            germination: p.germination,
+            percentageK: p.percentageK,
+            percentageP: p.percentageP,
+            percentageN: Number(npk.n),
+            fertilizerId: fertilizerId ? Number(fertilizerId) : 0,
+            manualFertilizer: manual,
+            rowWidth: result?.rowWidth ?? 0,
+            seedDepth: result?.seedDepth ?? 0,
+            norms: (result?.cells || [])
+                .filter(c => c.seedingRate != null)
+                .map(c => ({
+                    plotIndex: c.plotIndex,
+                    kap: c.kap ?? 0,
+                    seedingRate: c.seedingRate,
+                    fertilizationRate: c.fertilizationRate ?? 0,
+                })),
+        });
     };
-
-    // console.log('[SeedingRate] field.data:', field.data);
 
     return (
         <div className="modal-overlay" onClick={onClose}>
@@ -124,7 +173,6 @@ export function SeedingRateEditor({ field, onSave, onClose }) {
                            onChange={e => { setGermination(e.target.value); invalidate(); }} /></label>
 
                 <h4 style={h4}>Параметры удобрений</h4>
-
                 {/* чекбокс и подпись в одну строку */}
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, fontSize: 13, cursor: 'pointer' }}>
                     <input type="checkbox" checked={manual}
@@ -132,7 +180,6 @@ export function SeedingRateEditor({ field, onSave, onClose }) {
                            style={{ width: 'auto', margin: 0, cursor: 'pointer' }} />
                     <span>Ручной ввод</span>
                 </label>
-
                 {!manual && (
                     <label style={lbl}>Удобрение
                         <select style={inp} value={fertilizerId} onChange={e => pickFertilizer(e.target.value)}>
@@ -151,7 +198,6 @@ export function SeedingRateEditor({ field, onSave, onClose }) {
                     <input style={inp} type="number" disabled={!manual} value={npk.n}
                            onChange={e => { setNpk(s => ({ ...s, n: e.target.value })); invalidate(); }} /></label>
 
-                {/*<h4 style={h4}>Дополнительные параметры</h4>*/}
                 <label style={lbl}>Тип почвы
                     <select style={inp} value={soilId} onChange={e => { setSoilId(e.target.value); invalidate(); }}>
                         <option value="">--- выберите ---</option>
@@ -171,28 +217,25 @@ export function SeedingRateEditor({ field, onSave, onClose }) {
                             Междурядья: <b>{result.rowWidth} см</b>, глубина: <b>{result.seedDepth} мм</b>
                         </div>
                         <table style={{
-                            width: '100%',
-                            fontSize: 12,
-                            marginTop: 6,
-                            borderCollapse: 'collapse',   // ← схлопываем границы
-                            textAlign: 'center',         // ← центрируем текст
+                            width: '100%', fontSize: 12, marginTop: 6,
+                            borderCollapse: 'collapse', textAlign: 'center',
                         }}>
                             <thead>
                             <tr>
-                                <th style={{ border: '1px solid #bbb', padding: '4px 6px', background: '#e8e8e8', textAlign: 'center' }}>Участок</th>
-                                <th style={{ border: '1px solid #bbb', padding: '4px 6px', background: '#e8e8e8', textAlign: 'center' }}>Высев, кг/га</th>
-                                <th style={{ border: '1px solid #bbb', padding: '4px 6px', background: '#e8e8e8', textAlign: 'center' }}>Удобр., кг/га</th>
+                                <th style={thStyle}>Участок</th>
+                                <th style={thStyle}>Высев, кг/га</th>
+                                <th style={thStyle}>Удобр., кг/га</th>
                             </tr>
                             </thead>
                             <tbody>
                             {result.cells.map(c => (
                                 <tr key={c.plotIndex}>
-                                    <td style={{ border: '1px solid #bbb', padding: '4px 6px', textAlign: 'center' }}>№ {c.plotIndex + 1}</td>
-                                    <td style={{ border: '1px solid #bbb', padding: '4px 6px', textAlign: 'center' }}>
-                                        {c.seedingRate ? c.seedingRate.toFixed(1) : `⚠️ ${c.error}`}
+                                    <td style={cellStyle}>№ {c.plotIndex + 1}</td>
+                                    <td style={cellStyle}>
+                                        {c.seedingRate != null ? c.seedingRate.toFixed(1) : `⚠️ ${c.error || '—'}`}
                                     </td>
-                                    <td style={{ border: '1px solid #bbb', padding: '4px 6px', textAlign: 'center' }}>
-                                        {c.fertilizationRate ? c.fertilizationRate.toFixed(1) : '—'}
+                                    <td style={cellStyle}>
+                                        {c.fertilizationRate != null ? c.fertilizationRate.toFixed(1) : '—'}
                                     </td>
                                 </tr>
                             ))}
