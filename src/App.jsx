@@ -19,7 +19,7 @@ import { useReferences } from './context/ReferenceContext';
 import { DiffGridEditor } from './components/DiffGridEditor';
 import { buildDiffGrid, buildDiffGridCells } from './utils/diffGrid';
 import { SeedingRateEditor } from './components/SeedingRateEditor';
-import { getDiffGrid, saveDiffGrid, deleteDiffGrid, getSeeding, saveSeeding } from './api/projects';
+import { getDiffGrid, saveDiffGrid, deleteDiffGrid, getSeeding, saveSeeding, deleteSeeding } from './api/projects';
 
 // ─── Подложки ───────────────────────────────────────────────────────
 const BASEMAPS = {
@@ -242,8 +242,7 @@ export default function App() {
     const [diffGrids, setDiffGrids] = useState({});                     // применённые сетки: { [fieldId]: {params, cellSize, cells} }
     const refs = useReferences();
     const [seedingField, setSeedingField] = useState(null);
-    const [seedingResults, setSeedingResults] = useState({});           // { [fieldId]: result }
-    const [seedingExisting, setSeedingExisting] = useState(null);           // расчёт из БД
+    const [seedingCalcs, setSeedingCalcs] = useState({});
 
     const {
         projects,
@@ -550,20 +549,97 @@ export default function App() {
         setDiffGridField(null);
     };
 
-    // ─── Открытие окна: центрируем поле и тянем сохранённый расчёт с сервера ───
+    // ─── Открытие окна: тянем сохранённый расчёт с сервера ───────
     const handleSeedingOpen = async (field) => {
         setSeedingField(field);
-        setSeedingExisting(null);
         setFocusTrigger({ field, ts: Date.now(), force: true });
+        if (seedingCalcs[field.id]) return;
         try {
             const data = await getSeeding(field.id);
             if (data?.success && data.present && data.calc) {
-                setSeedingExisting(data.calc);
+                setSeedingCalcs(prev => ({ ...prev, [field.id]: data.calc }));
             }
         } catch (e) {
             console.error('[handleSeedingOpen] error:', e);
         }
     };
+
+    // ─── Применить: сохраняем в БД и закрываем окно ──────────────
+    const handleSeedingApply = async (payload) => {
+        if (!seedingField) return;
+        try {
+            const result = await saveSeeding(seedingField.id, payload);
+            if (!result?.success) {
+                alert('Не удалось сохранить расчёт: ' + (result?.error || 'неизвестная ошибка'));
+                return;
+            }
+        } catch (e) {
+            alert('Ошибка сохранения расчёта: ' + e.message);
+            return;
+        }
+        // кладём в state в snake_case, как вернёт GET
+        setSeedingCalcs(prev => ({ ...prev, [seedingField.id]: {
+                crop_id: payload.cropId,
+                soil_id: payload.soilId,
+                subject_id: payload.subjectId,
+                mass_1000: payload.mass1000,
+                purity: payload.purity,
+                germination: payload.germination,
+                percentage_k: payload.percentageK,
+                percentage_p: payload.percentageP,
+                percentage_n: payload.percentageN,
+                fertilizer_id: payload.fertilizerId,
+                manual_fertilizer: payload.manualFertilizer,
+                row_width: payload.rowWidth,
+                seed_depth: payload.seedDepth,
+                norms: (payload.norms || []).map(n => ({
+                    plot_index: n.plotIndex,
+                    kap: n.kap,
+                    seeding_rate: n.seedingRate,
+                    fertilization_rate: n.fertilizationRate,
+                })),
+            }}));
+        setSeedingField(null);   // закрываем окно после успешного сохранения
+    };
+
+    // ─── Сбросить: удаляем в БД и в state, окно остаётся открытым ─
+    const handleSeedingReset = async () => {
+        if (!seedingField) return;
+        try {
+            await deleteSeeding(seedingField.id);
+        } catch (e) {
+            console.error('[handleSeedingReset] delete error:', e);
+        }
+        setSeedingCalcs(prev => {
+            if (!(seedingField.id in prev)) return prev;
+            const next = { ...prev };
+            delete next[seedingField.id];
+            return next;
+        });
+    };
+
+    // ─── Подтягиваем сохранённые расчёты для всех полей (подписи на карте) ───
+    useEffect(() => {
+        if (!fields.length) return;
+        let cancelled = false;
+        (async () => {
+            for (const f of fields) {
+                if (seedingCalcs[f.id] !== undefined) continue; // уже загружено (или null = расчёта нет)
+                try {
+                    const data = await getSeeding(f.id);
+                    if (cancelled) return;
+                    setSeedingCalcs(prev => ({
+                        ...prev,
+                        [f.id]: data?.success && data.present && data.calc ? data.calc : null,
+                    }));
+                } catch (e) {
+                    if (cancelled) return;
+                    setSeedingCalcs(prev => ({ ...prev, [f.id]: null }));
+                }
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [fields]);
 
     const currentBasemap = BASEMAPS[basemap];
 
@@ -766,7 +842,7 @@ export default function App() {
                                         <button
                                             className="btn-agrochem"
                                             onClick={() => {
-                                                setSeedingField(f);
+                                                handleSeedingOpen(f);
                                                 setFocusTrigger({ field: f, ts: Date.now(), force: true });
                                             }}
                                             title="Расчёт нормы высева"
@@ -929,14 +1005,14 @@ export default function App() {
                         ))
                     ))}
 
-                    {/* ─── Подписи норм высева/внесения после расчёта ─── */}
-                    {fields.map(f => {
-                        const sr = seedingResults[f.id];
-                        if (!sr?.cells) return null;
+                    {/* ─── Подписи норм высева/внесения из сохранённого расчёта ─── */}
+                    {mapZoom >= 14 && fields.map(f => {
+                        const calc = seedingCalcs[f.id];
+                        if (!calc?.norms) return null;
                         return f.plots.map((plot, idx) => {
-                            const cell = sr.cells.find(c => c.plotIndex === idx);
+                            const norm = (calc.norms || []).find(n => n.plot_index === idx);
                             const center = plotCenter(plot.coordinates);
-                            if (!cell || cell.seedingRate == null || !center) return null;
+                            if (!norm || norm.seeding_rate == null || !center) return null;
                             return (
                                 <CircleMarker
                                     key={`seeding-${f.id}-${idx}`}
@@ -946,8 +1022,8 @@ export default function App() {
                                     pathOptions={{ opacity: 0, fillOpacity: 0 }}
                                 >
                                     <Tooltip permanent direction="top" offset={[0, -6]} className="seeding-label">
-                                        <div>Nвыс: {Number(cell.seedingRate).toFixed(2)} кг/га</div>
-                                        <div>Nвн: {cell.fertilizationRate != null ? Number(cell.fertilizationRate).toFixed(2) : '—'} кг/га</div>
+                                        <div>Nвыс: {Number(norm.seeding_rate).toFixed(2)} кг/га</div>
+                                        <div>Nвн: {norm.fertilization_rate != null ? Number(norm.fertilization_rate).toFixed(2) : '—'} кг/га</div>
                                     </Tooltip>
                                 </CircleMarker>
                             );
@@ -1042,12 +1118,9 @@ export default function App() {
             {seedingField && (
                 <SeedingRateEditor
                     field={seedingField}
-                    existing={seedingExisting}
-                    onSave={(payload) => {
-                        saveSeeding(seedingField.id, payload)
-                            .then(() => setSeedingField(null))
-                            .catch((e) => alert('Ошибка сохранения расчёта: ' + e.message));
-                    }}
+                    existing={seedingCalcs[seedingField.id] || null}
+                    onApply={handleSeedingApply}
+                    onReset={handleSeedingReset}
                     onClose={() => setSeedingField(null)}
                 />
             )}
