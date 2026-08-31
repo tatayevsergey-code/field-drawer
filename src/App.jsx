@@ -20,6 +20,7 @@ import { DiffGridEditor } from './components/DiffGridEditor';
 import { buildDiffGrid, buildDiffGridCells } from './utils/diffGrid';
 import { SeedingRateEditor } from './components/SeedingRateEditor';
 import { getDiffGrid, saveDiffGrid, deleteDiffGrid, getSeeding, saveSeeding, deleteSeeding } from './api/projects';
+import { downloadTaskKml } from './utils/exportTaskKml';
 
 // ─── Подложки ───────────────────────────────────────────────────────
 const BASEMAPS = {
@@ -618,6 +619,21 @@ export default function App() {
         });
     };
 
+// ─── Экспорт карты-задания (KML) для сеялки ──────────────────
+    const handleExportTask = (field) => {
+        const calc = seedingCalcs[field.id];
+        if (!calc?.norms?.length) {
+            alert('Нет сохранённого расчёта нормы высева. Сначала выполните расчёт (🌱) и нажмите «Применить».');
+            return;
+        }
+        try {
+            downloadTaskKml(field, calc, refs);
+        } catch (e) {
+            console.error('[exportTask] error:', e);
+            alert('Ошибка экспорта задания: ' + e.message);
+        }
+    };
+
     // ─── Подтягиваем сохранённые расчёты для всех полей (подписи на карте) ───
     useEffect(() => {
         if (!fields.length) return;
@@ -851,7 +867,7 @@ export default function App() {
                                         </button>
                                         <button
                                             className="btn-agrochem"
-                                            onClick={() => alert('Экспорт карты задания — скоро')}
+                                            onClick={() => handleExportTask(f)}
                                             title="Экспорт карты задания"
                                         >
                                             {/* стрелка ВВЕРХ из лотка = выгрузка задания */}
