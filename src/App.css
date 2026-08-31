@@ -872,3 +872,8 @@ body {
     padding: 4px 8px;
     border-radius: 6px;
 }
+
+.field-actions-row .btn-agrochem svg {
+    display: block;
+    margin: 0 auto;
+}

@@ -851,17 +851,31 @@ export default function App() {
                                         </button>
                                         <button
                                             className="btn-agrochem"
-                                            onClick={() => alert('Экспорт задания на посев — делаем в понедельник')}
-                                            title="Экспорт задания на посев"
+                                            onClick={() => alert('Экспорт карты задания — скоро')}
+                                            title="Экспорт карты задания"
                                         >
-                                            📤
+                                            {/* стрелка ВВЕРХ из лотка = выгрузка задания */}
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                                 stroke="currentColor" strokeWidth="2.5"
+                                                 strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M12 17V4" />
+                                                <path d="M6 10l6-6 6 6" />
+                                                <path d="M5 20h14" />
+                                            </svg>
                                         </button>
                                         <button
                                             className="btn-agrochem"
-                                            onClick={() => alert('Импорт результатов посева — делаем в понедельник')}
+                                            onClick={() => alert('Импорт результатов посева — скоро')}
                                             title="Импорт результатов посева"
                                         >
-                                            📥
+                                            {/* стрелка ВНИЗ в лоток = загрузка результатов */}
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                                 stroke="currentColor" strokeWidth="2.5"
+                                                 strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M12 4v13" />
+                                                <path d="M6 11l6 6 6-6" />
+                                                <path d="M5 20h14" />
+                                            </svg>
                                         </button>
                                     </div>
                                 </div>
