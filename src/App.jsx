@@ -21,6 +21,9 @@ import { buildDiffGrid, buildDiffGridCells } from './utils/diffGrid';
 import { SeedingRateEditor } from './components/SeedingRateEditor';
 import { getDiffGrid, saveDiffGrid, deleteDiffGrid, getSeeding, saveSeeding, deleteSeeding } from './api/projects';
 import { downloadTaskKml } from './utils/exportTaskKml';
+import { Fragment } from 'react';
+import { SowingTracksDialog } from './components/SowingTracksDialog';
+import { getSowingTrack } from './api/projects';
 
 // ─── Подложки ───────────────────────────────────────────────────────
 const BASEMAPS = {
@@ -244,6 +247,8 @@ export default function App() {
     const refs = useReferences();
     const [seedingField, setSeedingField] = useState(null);
     const [seedingCalcs, setSeedingCalcs] = useState({});
+    const [sowingField, setSowingField] = useState(null);      // поле, для которого открыт диалог
+    const [visibleTracks, setVisibleTracks] = useState({});    // { [trackId]: trackWithPoints }
 
     const {
         projects,
@@ -619,7 +624,7 @@ export default function App() {
         });
     };
 
-// ─── Экспорт карты-задания (KML) для сеялки ──────────────────
+    // ─── Экспорт карты-задания (KML) для сеялки ──────────────────
     const handleExportTask = (field) => {
         const calc = seedingCalcs[field.id];
         if (!calc?.norms?.length) {
@@ -632,6 +637,19 @@ export default function App() {
             console.error('[exportTask] error:', e);
             alert('Ошибка экспорта задания: ' + e.message);
         }
+    };
+
+    const toggleSowingTrack = async (trackId) => {
+        if (visibleTracks[trackId]) {
+            setVisibleTracks(prev => { const n = { ...prev }; delete n[trackId]; return n; });
+            return;
+        }
+        try {
+            const data = await getSowingTrack(trackId);
+            if (data?.success && data.track) {
+                setVisibleTracks(prev => ({ ...prev, [trackId]: data.track }));
+            }
+        } catch (e) { console.error('[sowing] get track error:', e); }
     };
 
     // ─── Подтягиваем сохранённые расчёты для всех полей (подписи на карте) ───
@@ -881,7 +899,10 @@ export default function App() {
                                         </button>
                                         <button
                                             className="btn-agrochem"
-                                            onClick={() => alert('Импорт результатов посева — скоро')}
+                                            onClick={() => {
+                                                setSowingField(f);
+                                                setFocusTrigger({ field: f, ts: Date.now(), force: true });
+                                            }}
                                             title="Импорт результатов посева"
                                         >
                                             {/* стрелка ВНИЗ в лоток = загрузка результатов */}
@@ -1102,6 +1123,29 @@ export default function App() {
                             pathOptions={{ color: '#d32f2f', dashArray: '5,5', weight: 2 }}
                         />
                     )}
+                    {/* ─── Треки результатов посева ─── */}
+                    {Object.values(visibleTracks).map(t => (
+                        <Fragment key={t.id}>
+                            <Polyline
+                                positions={(t.points || []).map(p => [p.lat, p.lng])}
+                                interactive={false}
+                                pathOptions={{ color: '#0288d1', weight: 2, opacity: 0.6 }}
+                            />
+                            {(t.points || []).filter(p => p.status > 0).map((p, i) => (
+                                <CircleMarker
+                                    key={`${t.id}-${i}`}
+                                    center={[p.lat, p.lng]}
+                                    radius={3}
+                                    interactive={false}
+                                    pathOptions={{
+                                        color: p.status >= 2 ? '#d32f2f' : '#fb8c00',
+                                        fillColor: p.status >= 2 ? '#d32f2f' : '#fb8c00',
+                                        fillOpacity: 0.9,
+                                    }}
+                                />
+                            ))}
+                        </Fragment>
+                    ))}
                 </MapContainer>
             </main>
             {modalField && (
@@ -1152,6 +1196,14 @@ export default function App() {
                     onApply={handleSeedingApply}
                     onReset={handleSeedingReset}
                     onClose={() => setSeedingField(null)}
+                />
+            )}
+            {sowingField && (
+                <SowingTracksDialog
+                    field={sowingField}
+                    visibleIds={visibleTracks}
+                    onToggleTrack={toggleSowingTrack}
+                    onClose={() => setSowingField(null)}
                 />
             )}
         </div>

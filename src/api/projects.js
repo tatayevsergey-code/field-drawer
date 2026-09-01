@@ -88,3 +88,20 @@ export async function saveSeeding(fieldId, payload) {
 export async function deleteSeeding(fieldId) {
     return request(`/fields/${fieldId}/seeding`, { method: 'DELETE', auth: true });
 }
+
+// ─── Треки результатов посева ─────────────────────────────────
+export async function listSowingTracks(fieldId) {
+    return request(`/fields/${fieldId}/sowing-tracks`, { method: 'GET', auth: true });
+}
+
+export async function saveSowingTrack(fieldId, payload) {
+    return request(`/fields/${fieldId}/sowing-tracks`, { method: 'POST', body: payload, auth: true });
+}
+
+export async function getSowingTrack(trackId) {
+    return request(`/sowing-tracks/${trackId}`, { method: 'GET', auth: true });
+}
+
+export async function deleteSowingTrack(trackId) {
+    return request(`/sowing-tracks/${trackId}`, { method: 'DELETE', auth: true });
+}
