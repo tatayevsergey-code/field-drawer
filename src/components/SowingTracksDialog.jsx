@@ -4,6 +4,18 @@ import { parseSowingCsv } from '../utils/parseSowingCsv';
 
 const btn = { padding: '4px 8px', fontSize: 12, borderRadius: 4, border: '1px solid #ccc', background: '#fff', cursor: 'pointer' };
 
+const secondaryBtn = {
+    background: '#f0f0f0',
+    color: '#333',
+    border: '1px solid #ccc',
+    borderRadius: 6,
+    padding: '8px 6px',
+    fontSize: 13,
+    cursor: 'pointer',
+    flex: 1,
+    minWidth: 0,
+};
+
 export function SowingTracksDialog({ field, visibleIds, onToggleTrack, onClose }) {
     const [tracks, setTracks] = useState([]);
     const [busy, setBusy] = useState(false);
@@ -67,7 +79,10 @@ export function SowingTracksDialog({ field, visibleIds, onToggleTrack, onClose }
                     </div>
                 ))}
                 <div style={{ textAlign: 'right', marginTop: 8 }}>
-                    <button type="button" className="btn-secondary" onClick={onClose}>Закрыть</button>
+                    {/*<button type="button" className="btn-secondary" onClick={onClose}>Закрыть</button>*/}
+                    <button type="button" style={secondaryBtn} onClick={onClose}>
+                        Закрыть
+                    </button>
                 </div>
             </div>
         </div>

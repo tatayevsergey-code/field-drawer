@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { MapContainer, TileLayer, Polygon, Polyline, CircleMarker, Tooltip, useMap, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Polygon, Polyline, CircleMarker, Tooltip, Popup, useMap, useMapEvents } from 'react-leaflet';
 import { FieldEditor } from './components/FieldEditor';
 import { ProjectManager } from './components/ProjectManager';
 import { ConfirmDialog } from './components/ConfirmDialog';
@@ -24,6 +24,7 @@ import { downloadTaskKml } from './utils/exportTaskKml';
 import { Fragment } from 'react';
 import { SowingTracksDialog } from './components/SowingTracksDialog';
 import { getSowingTrack } from './api/projects';
+import { parseSowingRaw, sowingPointErrors, formatSowingTime } from './utils/sowing';
 
 // ─── Подложки ───────────────────────────────────────────────────────
 const BASEMAPS = {
@@ -249,6 +250,7 @@ export default function App() {
     const [seedingCalcs, setSeedingCalcs] = useState({});
     const [sowingField, setSowingField] = useState(null);      // поле, для которого открыт диалог
     const [visibleTracks, setVisibleTracks] = useState({});    // { [trackId]: trackWithPoints }
+    const [sowingAlarm, setSowingAlarm] = useState(null); // { lat, lng, time, errors }
 
     const {
         projects,
@@ -641,15 +643,27 @@ export default function App() {
 
     const toggleSowingTrack = async (trackId) => {
         if (visibleTracks[trackId]) {
+            setSowingAlarm(null);
             setVisibleTracks(prev => { const n = { ...prev }; delete n[trackId]; return n; });
             return;
         }
         try {
             const data = await getSowingTrack(trackId);
-            if (data?.success && data.track) {
-                setVisibleTracks(prev => ({ ...prev, [trackId]: data.track }));
+
+            // 🔍 ВРЕМЕННО РАСКОММЕНТИРУЙТЕ, ЧТОБЫ УВИДЕТЬ ФОРМАТ ОТВЕТА В КОНСОЛИ:
+            console.log('[sowing] GET track response:', data);
+
+            if (data?.success) {
+                // Защита: берем data.track, если есть, иначе сам data
+                const trackData = data.track || data;
+
+                if (trackData) {
+                    setVisibleTracks(prev => ({ ...prev, [trackId]: trackData }));
+                }
             }
-        } catch (e) { console.error('[sowing] get track error:', e); }
+        } catch (e) {
+            console.error('[sowing] get track error:', e);
+        }
     };
 
     // ─── Подтягиваем сохранённые расчёты для всех полей (подписи на карте) ───
@@ -1123,29 +1137,67 @@ export default function App() {
                             pathOptions={{ color: '#d32f2f', dashArray: '5,5', weight: 2 }}
                         />
                     )}
-                    {/* ─── Треки результатов посева ─── */}
-                    {Object.values(visibleTracks).map(t => (
-                        <Fragment key={t.id}>
-                            <Polyline
-                                positions={(t.points || []).map(p => [p.lat, p.lng])}
-                                interactive={false}
-                                pathOptions={{ color: '#0288d1', weight: 2, opacity: 0.6 }}
-                            />
-                            {(t.points || []).filter(p => p.status > 0).map((p, i) => (
-                                <CircleMarker
-                                    key={`${t.id}-${i}`}
-                                    center={[p.lat, p.lng]}
-                                    radius={3}
-                                    interactive={false}
-                                    pathOptions={{
-                                        color: p.status >= 2 ? '#d32f2f' : '#fb8c00',
-                                        fillColor: p.status >= 2 ? '#d32f2f' : '#fb8c00',
-                                        fillOpacity: 0.9,
-                                    }}
-                                />
-                            ))}
-                        </Fragment>
-                    ))}
+                    {/* ─── Треки результатов посева (как в десктопе) ─── */}
+                    {Object.values(visibleTracks).map(t => {
+                        // 🛡 ЗАЩИТА: поддерживаем и lat/lng, и latitude/longitude
+                        const line = (t.points || []).map(p => [
+                            p.lat ?? p.latitude,
+                            p.lng ?? p.longitude
+                        ]);
+
+                        // Если точек нет или они невалидны — пропускаем рендер
+                        if (!line.length) return null;
+
+                        return (
+                            <Fragment key={t.id}>
+                                {/* «коридор» сеялки */}
+                                <Polyline positions={line} interactive={false}
+                                          pathOptions={{ color: '#c8a06a', weight: 14, opacity: 0.45 }} />
+                                {/* линия маршрута */}
+                                <Polyline positions={line} interactive={false}
+                                          pathOptions={{ color: '#000000', weight: 1.5, opacity: 0.9 }} />
+
+                                {/* точки с ошибками — клик открывает попап */}
+                                {(t.points || []).map((p, i) => {
+                                    const errors = sowingPointErrors(parseSowingRaw(p));
+                                    if (!errors.length) return null;
+
+                                    const pLat = p.lat ?? p.latitude;
+                                    const pLng = p.lng ?? p.longitude;
+
+                                    return (
+                                        <CircleMarker
+                                            key={`${t.id}-${i}`}
+                                            center={[pLat, pLng]}
+                                            radius={3}
+                                            pathOptions={{ color: '#d32f2f', fillColor: '#d32f2f', fillOpacity: 1 }}
+                                            eventHandlers={{
+                                                click: () => setSowingAlarm({
+                                                    lat: pLat,
+                                                    lng: pLng,
+                                                    time: p.time,
+                                                    errors
+                                                })
+                                            }}
+                                        />
+                                    );
+                                })}
+                            </Fragment>
+                        );
+                    })}
+                    {sowingAlarm && (
+                        <Popup position={[sowingAlarm.lat, sowingAlarm.lng]} closeButton={false} offset={[0, -4]}>
+                            <div className="sowing-popup">
+                                <button type="button" className="sowing-popup-close"
+                                        onClick={() => setSowingAlarm(null)}>✕</button>
+                                <div className="sowing-popup-time">{formatSowingTime(sowingAlarm.time)}</div>
+                                <div className="sowing-popup-title">Ошибки</div>
+                                <ol className="sowing-popup-errors">
+                                    {sowingAlarm.errors.map((e, i) => <li key={i}>{e}</li>)}
+                                </ol>
+                            </div>
+                        </Popup>
+                    )}
                 </MapContainer>
             </main>
             {modalField && (

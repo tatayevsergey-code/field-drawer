@@ -877,3 +877,14 @@ body {
     display: block;
     margin: 0 auto;
 }
+.sowing-popup { position: relative; min-width: 230px; padding-right: 16px; }
+.sowing-popup-close {
+    position: absolute; top: -2px; right: -8px;
+    border: none; background: none; color: #888;
+    font-size: 16px; cursor: pointer; padding: 2px;
+}
+.sowing-popup-close:hover { color: #333; }
+.sowing-popup-time  { color: #555; font-size: 12px; margin-bottom: 8px; }
+.sowing-popup-title { font-weight: 600; margin-bottom: 6px; }
+.sowing-popup-errors { margin: 0; padding-left: 18px; font-size: 13px; }
+.sowing-popup-errors li { margin-bottom: 4px; }
