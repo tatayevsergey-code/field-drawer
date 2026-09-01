@@ -54,7 +54,7 @@ export function SowingTracksDialog({ field, visibleIds, onToggleTrack, onClose }
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal" style={{ maxWidth: 520, maxHeight: '85vh', overflowY: 'auto' }}
                  onClick={e => e.stopPropagation()}>
-                <h3>📥 Результаты посева: {field.data?.name || ''}</h3>
+                <h3>Результаты посева: {field.data?.name || ''}</h3>
                 <button type="button" disabled={busy} onClick={() => fileRef.current?.click()}
                         style={{ ...btn, background: '#1976d2', color: '#fff', border: 'none', padding: '8px 12px', width: '100%', marginBottom: 10 }}>
                     {busy ? 'Импорт…' : 'Импортировать CSV'}

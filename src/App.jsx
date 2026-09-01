@@ -250,7 +250,7 @@ export default function App() {
     const [seedingCalcs, setSeedingCalcs] = useState({});
     const [sowingField, setSowingField] = useState(null);      // поле, для которого открыт диалог
     const [visibleTracks, setVisibleTracks] = useState({});    // { [trackId]: trackWithPoints }
-    const [sowingAlarm, setSowingAlarm] = useState(null); // { lat, lng, time, errors }
+    // const [sowingAlarm, setSowingAlarm] = useState(null); // { lat, lng, time, errors }
 
     const {
         projects,
@@ -643,7 +643,7 @@ export default function App() {
 
     const toggleSowingTrack = async (trackId) => {
         if (visibleTracks[trackId]) {
-            setSowingAlarm(null);
+            // setSowingAlarm(null);
             setVisibleTracks(prev => { const n = { ...prev }; delete n[trackId]; return n; });
             return;
         }
@@ -1137,15 +1137,9 @@ export default function App() {
                             pathOptions={{ color: '#d32f2f', dashArray: '5,5', weight: 2 }}
                         />
                     )}
-                    {/* ─── Треки результатов посева (как в десктопе) ─── */}
+                    {/* ─── Треки результатов посева ─── */}
                     {Object.values(visibleTracks).map(t => {
-                        // 🛡 ЗАЩИТА: поддерживаем и lat/lng, и latitude/longitude
-                        const line = (t.points || []).map(p => [
-                            p.lat ?? p.latitude,
-                            p.lng ?? p.longitude
-                        ]);
-
-                        // Если точек нет или они невалидны — пропускаем рендер
+                        const line = (t.points || []).map(p => [p.lat ?? p.latitude, p.lng ?? p.longitude]);
                         if (!line.length) return null;
 
                         return (
@@ -1157,7 +1151,7 @@ export default function App() {
                                 <Polyline positions={line} interactive={false}
                                           pathOptions={{ color: '#000000', weight: 1.5, opacity: 0.9 }} />
 
-                                {/* точки с ошибками — клик открывает попап */}
+                                {/* точки с ошибками — показываются при наведении (Tooltip) */}
                                 {(t.points || []).map((p, i) => {
                                     const errors = sowingPointErrors(parseSowingRaw(p));
                                     if (!errors.length) return null;
@@ -1171,33 +1165,25 @@ export default function App() {
                                             center={[pLat, pLng]}
                                             radius={3}
                                             pathOptions={{ color: '#d32f2f', fillColor: '#d32f2f', fillOpacity: 1 }}
-                                            eventHandlers={{
-                                                click: () => setSowingAlarm({
-                                                    lat: pLat,
-                                                    lng: pLng,
-                                                    time: p.time,
-                                                    errors
-                                                })
-                                            }}
-                                        />
+                                        >
+                                            <Tooltip
+                                                direction="top"
+                                                offset={[0, -4]}
+                                                sticky={true}          /* ← следует за курсором, не исчезает при микро-сдвигах */
+                                                className="sowing-popup"
+                                            >
+                                                <div className="sowing-popup-time">{formatSowingTime(p.time)}</div>
+                                                <div className="sowing-popup-title">Ошибки</div>
+                                                <ol className="sowing-popup-errors">
+                                                    {errors.map((e, idx) => <li key={idx}>{e}</li>)}
+                                                </ol>
+                                            </Tooltip>
+                                        </CircleMarker>
                                     );
                                 })}
                             </Fragment>
                         );
                     })}
-                    {sowingAlarm && (
-                        <Popup position={[sowingAlarm.lat, sowingAlarm.lng]} closeButton={false} offset={[0, -4]}>
-                            <div className="sowing-popup">
-                                <button type="button" className="sowing-popup-close"
-                                        onClick={() => setSowingAlarm(null)}>✕</button>
-                                <div className="sowing-popup-time">{formatSowingTime(sowingAlarm.time)}</div>
-                                <div className="sowing-popup-title">Ошибки</div>
-                                <ol className="sowing-popup-errors">
-                                    {sowingAlarm.errors.map((e, i) => <li key={i}>{e}</li>)}
-                                </ol>
-                            </div>
-                        </Popup>
-                    )}
                 </MapContainer>
             </main>
             {modalField && (
