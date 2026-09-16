@@ -88,6 +88,7 @@ export function parseImportedField(json, refs) {
 
     const data = {
         name: json.name || 'Импортированное поле',
+        cadastralNumber: json.cadastral_number || '',
         cropType: '',
         area,
         soilType: soilTypeId,

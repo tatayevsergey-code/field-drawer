@@ -42,6 +42,7 @@ export function exportFieldToJson(field, refs) {
     return {
         id: field.id,
         name: field.data.name || 'Без названия',
+        cadastral_number: field.data.cadastralNumber || '',
         region_id: field.data.regionId || null,
         characteristic: { coordinate: { type: 'MultiPolygon', coordinates: [[outerCoords]] } },
         soil_agrophysical_property: {

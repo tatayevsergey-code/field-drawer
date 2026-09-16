@@ -13,6 +13,7 @@ function adaptField(f) {
         })),
         data: {
             name: f.name || '',
+            cadastralNumber: f.cadastral_number || '',
             cropType: f.crop_id || '',
             soilType: f.soil_id || '',
             regionId: f.region_id || '',
@@ -37,6 +38,7 @@ function adaptField(f) {
 function toProtoFormat(data, plots) {
     return {
         name: data.name || '',
+        cadastral_number: data.cadastralNumber || '',
         cropId: data.cropType ? Number(data.cropType) : 0,
         soilId: data.soilType ? Number(data.soilType) : 0,
         regionId: data.regionId ? Number(data.regionId) : 0,

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { MapContainer, TileLayer, Polygon, Polyline, CircleMarker, Tooltip, Popup, useMap, useMapEvents } from 'react-leaflet';
 import { FieldEditor } from './components/FieldEditor';
 import { ProjectManager } from './components/ProjectManager';
@@ -251,6 +251,7 @@ export default function App() {
     const [sowingField, setSowingField] = useState(null);      // поле, для которого открыт диалог
     const [visibleTracks, setVisibleTracks] = useState({});    // { [trackId]: trackWithPoints }
     // const [sowingAlarm, setSowingAlarm] = useState(null); // { lat, lng, time, errors }
+    const [searchQuery, setSearchQuery] = useState('');
 
     const {
         projects,
@@ -272,6 +273,17 @@ export default function App() {
 
     // Поля активного проекта
     const fields = activeProject?.fields || [];
+
+    // <-- ДОБАВЛЕНО: Мемоизированная фильтрация полей -->
+    const filteredFields = useMemo(() => {
+        if (!searchQuery.trim()) return fields;
+        const q = searchQuery.trim().toLowerCase();
+        return fields.filter(f => {
+            const name = (f.data?.name || '').toLowerCase();
+            const cadNum = (f.data?.cadastralNumber || '').toLowerCase();
+            return name.includes(q) || cadNum.includes(q);
+        });
+    }, [fields, searchQuery]);
 
     // ─── Создание поля ──────────────────────────────────────────────
     const handleCreate = useCallback((coords, area) => {
@@ -817,12 +829,39 @@ export default function App() {
                                 {fields.reduce((s, f) => s + getTotalArea(f), 0).toFixed(2)} га
               </span>
                         </div>
+
+                        {/* <-- Строка поиска --> */}
+                        <div style={{ padding: '0 8px', marginBottom: '8px' }}>
+                            <input
+                                type="text"
+                                placeholder="🔍 Поиск по имени или кад. номеру..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '8px 12px',
+                                    borderRadius: '6px',
+                                    border: '1px solid #ccc',
+                                    fontSize: '14px',
+                                    boxSizing: 'border-box',
+                                    outline: 'none',
+                                }}
+                            />
+                            {searchQuery && (
+                                <div style={{ fontSize: '12px', color: '#666', marginTop: '4px', textAlign: 'center' }}>
+                                    Найдено: {filteredFields.length} из {fields.length}
+                                </div>
+                            )}
+                        </div>
+
                         <h3>Список полей</h3>
                         <div className="field-list">
-                            {fields.length === 0 && (
-                                <div className="empty">Нет созданных полей</div>
+                            {filteredFields.length === 0 && (
+                                <div className="empty">
+                                    {fields.length === 0 ? 'Нет созданных полей' : 'Поля не найдены'}
+                                </div>
                             )}
-                            {fields.map(f => (
+                            {filteredFields.map(f => (
                                 <div
                                     key={f.id}
                                     className={`field-item ${editingFieldId === f.id ? 'active' : ''} ${splitField?.id === f.id ? 'split-active' : ''}`}

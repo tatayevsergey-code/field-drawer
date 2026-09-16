@@ -14,6 +14,7 @@ export function FieldEditor({
 
     const [formData, setFormData] = useState(field?.data || {
         name: '',
+        cadastralNumber: '',
         cropType: '',
         area: '',
         soilType: '',
@@ -215,6 +216,16 @@ export function FieldEditor({
                         value={formData.name}
                         onChange={handleChange}
                         placeholder="Например, Поле северное"
+                    />
+                </label>
+
+                <label>
+                    Кадастровый номер:
+                    <input
+                        name="cadastralNumber"
+                        value={formData.cadastralNumber}
+                        onChange={handleChange}
+                        placeholder="Например, 77:01:0001234:567"
                     />
                 </label>
 
