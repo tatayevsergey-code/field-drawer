@@ -25,6 +25,7 @@ import { Fragment } from 'react';
 import { SowingTracksDialog } from './components/SowingTracksDialog';
 import { getSowingTrack } from './api/projects';
 import { parseSowingRaw, sowingPointErrors, formatSowingTime } from './utils/sowing';
+import { exportFieldPdf } from './utils/exportFieldPdf';
 
 // ─── Подложки ───────────────────────────────────────────────────────
 const BASEMAPS = {
@@ -653,6 +654,18 @@ export default function App() {
         }
     };
 
+    // ─── Экспорт PDF-отчёта по полю ─────────────────────────────
+    const handleExportPdf = (field) => {
+        const calc = seedingCalcs[field.id] || null;
+        const grid = diffGrids[field.id] || null;
+        try {
+            exportFieldPdf(field, refs, calc, grid);
+        } catch (e) {
+            console.error('[exportPdf] error:', e);
+            alert('Ошибка формирования отчёта: ' + e.message);
+        }
+    };
+
     const toggleSowingTrack = async (trackId) => {
         if (visibleTracks[trackId]) {
             // setSowingAlarm(null);
@@ -965,6 +978,21 @@ export default function App() {
                                                 <path d="M12 4v13" />
                                                 <path d="M6 11l6 6 6-6" />
                                                 <path d="M5 20h14" />
+                                            </svg>
+                                        </button>
+                                        <button
+                                            className="btn-agrochem"
+                                            onClick={() => handleExportPdf(f)}
+                                            title="Сформировать PDF-отчёт"
+                                        >
+                                            {/* иконка документа */}
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                                 stroke="currentColor" strokeWidth="2.5"
+                                                 strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                                <polyline points="14 2 14 8 20 8" />
+                                                <line x1="9" y1="13" x2="15" y2="13" />
+                                                <line x1="9" y1="17" x2="15" y2="17" />
                                             </svg>
                                         </button>
                                     </div>
