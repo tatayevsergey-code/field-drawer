@@ -15,7 +15,7 @@ body {
 
 /* === Сайдбар === */
 .sidebar {
-    width: 320px;
+    width: 360px;
     background: #f5f5f5;
     border-right: 1px solid #ddd;
     padding: 16px;
@@ -839,15 +839,22 @@ body {
 
 .field-actions-row {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 4px;
     padding-top: 6px;
     border-top: 1px dashed #e0e0e0;
+    overflow-x: auto;
 }
 
 .field-actions-row button {
-    flex: 1 1 auto;    /* кнопки равномерно растягиваются по ширине */
-    min-width: 30px;
+    flex: 0 0 auto;          /* ← фиксированный размер, не растягивается */
+    min-width: 34px;
+    width: 34px;             /* ← единая ширина для всех кнопок */
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
 }
 
 /* ─── Кнопки карточки поля: единый стиль ───────────────────── */

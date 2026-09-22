@@ -50,8 +50,9 @@ export function ReferenceProvider({ children }) {
                 <div className="auth-card">
                     <div className="auth-title" style={{ color: '#c62828' }}>Ошибка загрузки</div>
                     <div style={{ color: '#666', marginTop: 8, fontSize: 14 }}>{error}</div>
-                    <button type="button" className="btn-primary" style={{ marginTop: 16 }}
-                            onClick={() => window.location.reload()}>
+                    <button type="button" className="btn-primary"
+                            onClick={() => window.location.reload()}
+                            style={{ marginTop: '16px', padding: '8px 16px', fontSize: '14px' }}>
                         Перезагрузить
                     </button>
                 </div>
