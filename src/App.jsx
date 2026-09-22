@@ -26,6 +26,7 @@ import { SowingTracksDialog } from './components/SowingTracksDialog';
 import { getSowingTrack } from './api/projects';
 import { parseSowingRaw, sowingPointErrors, formatSowingTime } from './utils/sowing';
 import { exportFieldPdf } from './utils/exportFieldPdf';
+import { BackupManager } from './components/admin/BackupManager';
 
 // ─── Подложки ───────────────────────────────────────────────────────
 const BASEMAPS = {
@@ -253,6 +254,7 @@ export default function App() {
     const [visibleTracks, setVisibleTracks] = useState({});    // { [trackId]: trackWithPoints }
     // const [sowingAlarm, setSowingAlarm] = useState(null); // { lat, lng, time, errors }
     const [searchQuery, setSearchQuery] = useState('');
+    const [showBackupManager, setShowBackupManager] = useState(false);
 
     const {
         projects,
@@ -735,9 +737,24 @@ export default function App() {
                 }}>
                     <div style={{ fontWeight: 600, fontSize: '16px' }}>🌾 АгроПО-M — Панель администратора</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <span style={{ color: '#555', fontSize: '14px' }}>
-              {user.fullName || user.email}
-            </span>
+                        <button
+                            type="button"
+                            onClick={() => setShowBackupManager(true)}
+                            style={{
+                                padding: '6px 14px',
+                                fontSize: '14px',
+                                borderRadius: '6px',
+                                border: '1px solid #1976d2',
+                                background: '#fff',
+                                color: '#1976d2',
+                                cursor: 'pointer',
+                            }}
+                        >
+                            💾 Бэкапы
+                        </button>
+                        <span style={{ color: '#555', fontSize: '14px' }}>
+                        {user.fullName || user.email}
+                    </span>
                         <button
                             type="button"
                             className="btn-primary"
@@ -757,6 +774,12 @@ export default function App() {
                 <main style={{ flex: 1, padding: '24px', overflow: 'auto', background: '#f5f5f5' }}>
                     <UserManager currentUser={user} inline />
                 </main>
+                {showBackupManager && (
+                    <BackupManager
+                        currentUser={user}
+                        onClose={() => setShowBackupManager(false)}
+                    />
+                )}
             </div>
         );
     }
