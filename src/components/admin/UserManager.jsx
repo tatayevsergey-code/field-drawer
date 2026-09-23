@@ -77,7 +77,7 @@ export function UserManager({ currentUser, onClose, inline = false }) {
         }
         setError('');
         try {
-            const data = user.isActive
+            const data = user.is_active
                 ? await deactivateUser(user.id)
                 : await activateUser(user.id);
             if (data.success) {
@@ -92,8 +92,8 @@ export function UserManager({ currentUser, onClose, inline = false }) {
 
     const confirmToggle = (user) => {
         setConfirmAction({
-            title: user.isActive ? 'Деактивация пользователя' : 'Активация пользователя',
-            message: `Вы уверены, что хотите ${user.isActive ? 'отключить' : 'активировать'} пользователя «${user.fullName || user.email}»?`,
+            title: user.is_active ? 'Деактивация пользователя' : 'Активация пользователя',
+            message: `Вы уверены, что хотите ${user.is_active ? 'отключить' : 'активировать'} пользователя «${user.fullName || user.email}»?`,
             onConfirm: () => {
                 handleToggleActive(user);
                 setConfirmAction(null);
@@ -226,26 +226,26 @@ export function UserManager({ currentUser, onClose, inline = false }) {
                                             borderRadius: '12px',
                                             fontSize: '11px',
                                             fontWeight: 600,
-                                            background: u.isActive ? '#e8f5e9' : '#ffebee',
-                                            color: u.isActive ? '#2e7d32' : '#c62828',
+                                            background: u.is_active ? '#e8f5e9' : '#ffebee',
+                                            color: u.is_active ? '#2e7d32' : '#c62828',
                                             whiteSpace: 'nowrap',
                                         }}
                                     >
-                                        {u.isActive ? 'Активен' : 'Отключён'}
+                                        {u.is_active ? 'Активен' : 'Отключён'}
                                     </span>
                             </td>
                             <td style={{ textAlign: 'center' }}>
-                                {u.emailConfirmed ? '✅' : '❌'}
+                                {u.email_confirmed ? '✅' : '❌'}
                             </td>
                             <td>
                                 {currentUser?.id !== u.id ? (
                                     <button
                                         type="button"
                                         onClick={() => confirmToggle(u)}
-                                        className={u.isActive ? 'btn-danger' : 'btn-primary'}
+                                        className={u.is_active ? 'btn-danger' : 'btn-primary'}
                                         style={{ padding: '4px 10px', fontSize: '12px', width: '100%' }}
                                     >
-                                        {u.isActive ? 'Отключить' : 'Активировать'}
+                                        {u.is_active ? 'Отключить' : 'Активировать'}
                                     </button>
                                 ) : (
                                     <span style={{ fontSize: '11px', color: '#888' }}>Вы</span>
