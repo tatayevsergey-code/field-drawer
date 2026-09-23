@@ -94,6 +94,8 @@ export function UserManager({ currentUser, onClose, inline = false }) {
         setConfirmAction({
             title: user.is_active ? 'Деактивация пользователя' : 'Активация пользователя',
             message: `Вы уверены, что хотите ${user.is_active ? 'отключить' : 'активировать'} пользователя «${user.fullName || user.email}»?`,
+            confirmText: user.is_active ? 'Отключить' : 'Активировать',
+            confirmClass: user.is_active ? 'btn-danger' : 'btn-primary',
             onConfirm: () => {
                 handleToggleActive(user);
                 setConfirmAction(null);
@@ -319,6 +321,8 @@ export function UserManager({ currentUser, onClose, inline = false }) {
                     <ConfirmDialog
                         title={confirmAction.title}
                         message={confirmAction.message}
+                        confirmText={confirmAction.confirmText}
+                        confirmClass={confirmAction.confirmClass}
                         onConfirm={confirmAction.onConfirm}
                         onCancel={confirmAction.onCancel}
                     />
@@ -340,6 +344,8 @@ export function UserManager({ currentUser, onClose, inline = false }) {
                 <ConfirmDialog
                     title={confirmAction.title}
                     message={confirmAction.message}
+                    confirmText={confirmAction.confirmText}
+                    confirmClass={confirmAction.confirmClass}
                     onConfirm={confirmAction.onConfirm}
                     onCancel={confirmAction.onCancel}
                 />

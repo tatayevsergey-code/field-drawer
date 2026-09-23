@@ -26,14 +26,14 @@ export async function updateUserRole(userId, role) {
 
 export async function deactivateUser(userId) {
     return request(`/admin/users/${userId}/deactivate`, {
-        method: 'POST',
+        method: 'PUT',
         auth: true,
     });
 }
 
 export async function activateUser(userId) {
     return request(`/admin/users/${userId}/activate`, {
-        method: 'POST',
+        method: 'PUT',
         auth: true,
     });
 }
