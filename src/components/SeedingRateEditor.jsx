@@ -146,7 +146,11 @@ export function SeedingRateEditor({ field, existing, onApply, onReset, onClose }
             if (!sample?.values) return { plotIndex: idx, error: 'Нет пробы агрохимии' };
             return { plotIndex: idx, ...calcCellNorm(sample.values, p, refs) };
         });
-        setResult({ cells, ...calcSeedingParameters(p, refs), params: p });
+        const params = calcSeedingParameters(p, refs);
+        // ← НОВОЕ: собираем общий флаг по всем участкам и параметрам
+        const anyExtrapolated =
+            cells.some(c => c.hasExtrapolated) || params.hasExtrapolatedParams;
+        setResult({ cells, ...params, hasExtrapolated: anyExtrapolated, params: p });
         setFormed(true);
     };
 
@@ -251,6 +255,28 @@ export function SeedingRateEditor({ field, existing, onApply, onReset, onClose }
 
                 {result && (
                     <div style={{ background: '#f5f5f5', borderRadius: 6, padding: 10, fontSize: 13, marginBottom: 10 }}>
+                        {/* предупреждение об экстраполяции */}
+                        {result.hasExtrapolated && (
+                            <div style={{
+                                background: '#fff8e1',
+                                border: '1px solid #ffb300',
+                                borderRadius: 4,
+                                padding: '8px 10px',
+                                marginBottom: 10,
+                                fontSize: 12,
+                                color: '#8d6e00',
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                gap: 6,
+                            }}>
+                                <span style={{ fontSize: 14, lineHeight: 1 }}>⚠️</span>
+                                <span>
+                    Часть нормативов рассчитана по усреднённым показателям
+                    соседних регионов. Для точного расчёта уточните данные
+                    у регионального агронома.
+                </span>
+                            </div>
+                        )}
                         <div style={{ textAlign: 'center' }}>
                             Междурядья: <b>{result.rowWidth} см</b>, глубина: <b>{result.seedDepth} мм</b>
                         </div>
