@@ -895,3 +895,33 @@ body {
 .sowing-popup-title { font-weight: 600; margin-bottom: 6px; }
 .sowing-popup-errors { margin: 0; padding-left: 18px; font-size: 13px; }
 .sowing-popup-errors li { margin-bottom: 4px; }
+
+/* Кастомный скроллбар для списка полей */
+.field-list {
+    max-height: calc(100vh - 380px);
+    overflow-y: auto;
+}
+
+/* Стили скроллбара для WebKit (Chrome, Safari, Edge) */
+.field-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.field-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.field-list::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.field-list::-webkit-scrollbar-thumb:hover {
+    background: #a1a1a1;
+}
+
+/* Для Firefox */
+.field-list {
+    scrollbar-width: thin;
+    scrollbar-color: #c1c1c1 transparent;
+}
