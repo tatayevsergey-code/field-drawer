@@ -27,6 +27,7 @@ import { getSowingTrack } from './api/projects';
 import { parseSowingRaw, sowingPointErrors, formatSowingTime } from './utils/sowing';
 import { exportFieldPdf } from './utils/exportFieldPdf';
 import { BackupManager } from './components/admin/BackupManager';
+import { HealthMonitor } from './components/admin/HealthMonitor';
 
 // ─── Подложки ───────────────────────────────────────────────────────
 const BASEMAPS = {
@@ -255,6 +256,7 @@ export default function App() {
     // const [sowingAlarm, setSowingAlarm] = useState(null); // { lat, lng, time, errors }
     const [searchQuery, setSearchQuery] = useState('');
     const [showBackupManager, setShowBackupManager] = useState(false);
+    const [showHealthMonitor, setShowHealthMonitor] = useState(false);
 
     const {
         projects,
@@ -752,6 +754,21 @@ export default function App() {
                         >
                             💾 Бэкапы
                         </button>
+                        <button
+                            type="button"
+                            onClick={() => setShowHealthMonitor(true)}
+                            style={{
+                                padding: '6px 14px',
+                                fontSize: '14px',
+                                borderRadius: '6px',
+                                border: '1px solid #1976d2',
+                                background: '#fff',
+                                color: '#1976d2',
+                                cursor: 'pointer',
+                            }}
+                        >
+                            🩺 Мониторинг
+                        </button>
                         <span style={{ color: '#555', fontSize: '14px' }}>
                         {user.fullName || user.email}
                     </span>
@@ -778,6 +795,12 @@ export default function App() {
                     <BackupManager
                         currentUser={user}
                         onClose={() => setShowBackupManager(false)}
+                    />
+                )}
+                {showHealthMonitor && (
+                    <HealthMonitor
+                        currentUser={user}
+                        onClose={() => setShowHealthMonitor(false)}
                     />
                 )}
             </div>
