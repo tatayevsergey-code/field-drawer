@@ -21,6 +21,7 @@ export function sowingPointErrors(raw) {
 
 // '2024-11-18T07:16:18.677733Z' → '18.11.2024 10:16:18' (локальное время)
 export function formatSowingTime(iso) {
+    if (!iso) return '';
     const d = new Date(iso);
     if (isNaN(d)) return iso || '';
     const p = (n) => String(n).padStart(2, '0');
